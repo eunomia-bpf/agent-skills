@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Bootstrap"
+  short_description: "Bootstrap lean new projects"
+  default_prompt: "Use $project-bootstrap-workflow to initialize a lean new project without overengineering it."
