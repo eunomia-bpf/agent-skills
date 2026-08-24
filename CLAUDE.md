@@ -8,6 +8,8 @@ This public repository is the canonical source for the skills under `skills/`.
   semantic changes only when the task explicitly requests them.
 - Keep credentials, account identifiers, private strategy, local workspace
   identifiers, and private conversation content out of this repository.
+- Keep consuming-repository-specific content, publishing, SEO, and research
+  skills in their owning repository instead of adding them here.
 - Keep the link scripts cross-platform and fail safely instead of overwriting a
   real target directory.
 - Validate every changed skill with the `skill-creator` `quick_validate.py`

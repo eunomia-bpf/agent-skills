@@ -1,8 +1,8 @@
 # Agent Skills
 
 Agent Skills is the public, versioned source for reusable maintainer workflows
-and Eunomia community operations. Each skill is self-contained under
-`skills/<skill-name>/` and starts with a `SKILL.md` file.
+and organization-level Eunomia community maintenance. Each skill is
+self-contained under `skills/<skill-name>/` and starts with a `SKILL.md` file.
 
 ## Collections
 
@@ -15,10 +15,13 @@ The general-purpose workflows cover the full open-source lifecycle:
 - `oss-release-readiness`
 - `project-bootstrap-workflow`
 
-The remaining skills cover Eunomia writing, community patrols, research
-reports, content monitoring, and platform publishing. They may refer to files
-such as `CLAUDE.md`, `docs/`, or `draft/` in the repository where the skill is
-used; those operational files remain owned by the consuming repository.
+The Eunomia organization-level workflow is:
+
+- `eunomia-community-patrol`
+
+Skills tied to one consuming repository's content tree, publishing ledger,
+site paths, SEO operation, or research workflow remain in that repository and
+are intentionally not collected here.
 
 ## Install With Symbolic Links
 
