@@ -21,7 +21,7 @@ deduplication records outside the repository.
   successful manual patrol does not skip the next scheduled day. Retry a failed
   run at the next daily scheduler wake and prevent overlapping runs with a
   local lock.
-- Resume the designated Codex conversation for each eligible run so the final
+- Resume the designated Agent conversation for each eligible run so the final
   report appears in that conversation. If the target session is unavailable,
   fail without starting a second patrol, preserve the local log, and retry at
   the next scheduler wake.
