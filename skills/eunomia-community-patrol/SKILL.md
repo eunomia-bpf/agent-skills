@@ -128,6 +128,21 @@ security channel.
 - Recheck every item previously replied to, classified, opened, or updated, and
   every item where information was requested.
 - Do not stop tracking after the first comment or pull request.
+- Treat every unresolved item as active work on each scheduled run, not merely
+  as a reporting entry. Resume it automatically and take the next authorized
+  action before moving on.
+- Do not report a next step as future work when the task can safely perform it
+  under **Authorized Writes**. Continue in the same run through reproduction,
+  a narrow fix, tests, push, review replies, and CI as applicable until the item
+  is resolved or explicitly blocked.
+- For failing tests or CI and unresolved review comments, diagnose and fix them
+  when they affect a task-owned branch or another task-authorized narrow fix.
+  Otherwise gather evidence, request the specific external action, and keep the
+  item in automatic follow-up.
+- `Explicitly blocked` means the next safe action requires a prohibited
+  decision or write, inaccessible credentials, hardware, or runner capacity, or
+  action from a named reporter, reviewer, or maintainer. Run duration, queue
+  size, or having documented the next step is not a blocker.
 - Do not repeat a public comment without new evidence, a changed blocker, a new
   fix, a validation result, or a clear request for another party.
 - Keep an unchanged item in local memory and report it as continuing follow-up
