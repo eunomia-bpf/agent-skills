@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, and open pull requests but must never merge.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and narrowly approve or merge eligible ActPlane and wasm-bpf contributions.
 ---
 
 # Eunomia Community Patrol
@@ -177,6 +177,8 @@ GitHub or commit it.
   roadmap priority, support commitments, timelines, public behavior or API
   choices, acceptance or rejection, merge or closure decisions, and ownership
   or milestone choices.
+  The narrowly authorized ActPlane and wasm-bpf contributor exception below is
+  not decision-blocked once all of its explicit merge gates are satisfied.
 - For a decision-blocked item, summarize the evidence, viable options, and
   tradeoffs; state exactly what remains to be decided; mark the responsible
   user or maintainer as the blocker; and continue tracking without repetitive
@@ -214,6 +216,36 @@ Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing labels, assignees, or milestones.
 
+### ActPlane and wasm-bpf contributor exception
+
+For pull requests in `eunomia-bpf/ActPlane` and `eunomia-bpf/wasm-bpf`, favor
+helping an external contributor or Dependabot land a sound contribution instead
+of blocking it over minor style, process, documentation, test, or compatibility
+gaps.
+
+Without per-item confirmation, the task may:
+
+- make a small, narrowly scoped correction directly on a writable contributor
+  branch, then validate, push, and approve the pull request;
+- approve an otherwise sound contribution after relevant validation; and
+- merge the pull request after verifying the exact head revision when it is not
+  a draft, has no merge conflict, has no unresolved security or correctness
+  blocker, and its core relevant checks pass.
+
+A small correction is a localized build, compatibility, documentation, or test
+fix that does not introduce a new architecture, change intended public
+semantics, or broaden the contribution. A verified external registry, network,
+runner, or infrastructure failure that does not arise from the proposed change
+may be documented and need not block approval or merge when the core relevant
+checks are otherwise conclusive.
+
+Do not use this exception to merge deterministic failing code, drafts,
+conflicted pull requests, unresolved core review findings, or changes with a
+security or correctness blocker. Do not extend this merge authority to another
+repository without an explicit user instruction and a versioned skill update.
+Every patrol-authored public review or comment still requires the disclosure
+footer above.
+
 ## Name Branches, Commits, and Pull Requests Neutrally
 
 - Follow the target repository's branch convention. If none exists, use a
@@ -227,7 +259,8 @@ changing labels, assignees, or milestones.
 
 ## Never Perform These Actions
 
-- Merge a pull request.
+- Merge a pull request outside the narrowly authorized ActPlane and wasm-bpf
+  contributor exception.
 - Publish a release.
 - Close an issue or pull request.
 - Delete a branch.
