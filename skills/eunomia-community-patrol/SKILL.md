@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness while leaving every final merge to the user.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness and autonomously merge eligible PRs in repositories with fewer than 500 stars, while reserving higher-star repository merges for the user.
 ---
 
 # Eunomia Community Patrol
@@ -180,8 +180,9 @@ GitHub or commit it.
   choices, acceptance or rejection, merge or closure decisions, and ownership
   or milestone choices.
   Routine bug fixes, contributor-PR repairs, workflow-run approvals and
-  evidence-backed code reviews are already authorized below. The final merge
-  remains the user's action in every repository, including ActPlane and wasm-bpf.
+  evidence-backed code reviews are already authorized below. Merge authority
+  follows the live-star threshold below; product and API decisions remain
+  separate from routine maintenance.
 - For a decision-blocked item, summarize the evidence, viable options, and
   tradeoffs; state exactly what remains to be decided; mark the responsible
   user or maintainer as the blocker; and continue tracking without repetitive
@@ -219,7 +220,10 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
   their exact writable PR branch, and respond to or resolve addressed review
   threads after verifying the changes;
 - submit evidence-backed PR reviews, including approval when review and
-  relevant validation support it; PR approval never authorizes merging;
+  relevant validation support it; PR approval alone does not satisfy the merge
+  gates below;
+- merge an eligible PR in a target repository with fewer than 500 live GitHub
+  stars after all of the merge gates below pass;
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
@@ -277,16 +281,41 @@ repository and open a linked replacement/follow-up PR or provide the patch.
 Preserve the original PR and explain the relationship to the contributor.
 
 When appropriate tests and reviews pass, recheck the current head, mergeability,
-required checks and outstanding review threads, then report it ready for the
-user to merge. Keep watching for later pushes and regressions. A concrete lack
+required checks and outstanding review threads, then apply the live-star merge
+policy below. Keep watching for later pushes and regressions. A concrete lack
 of access, evidence, required hardware, or an unresolved product/API decision
 must name the missing input; merely belonging to another author is not a
 blocker. Preserve scope and avoid architecture or public-semantics changes
 unrelated to the reported bug or contribution.
 
-The user performs every final PR merge. Never invoke a merge API/CLI, enable
-auto-merge, enqueue a PR in a merge queue, or otherwise arrange an automatic
-merge. This supersedes the former ActPlane and wasm-bpf auto-merge exception.
+### Merge authority by live repository stars
+
+Immediately before a merge, query the target repository's current GitHub
+`stargazers_count`; do not use the fork's stars or a cached inventory count.
+At 500 or more stars, leave the final merge to the user and report readiness.
+Below 500 stars, the Workspace agent may perform the merge without per-PR
+confirmation only after all of these conditions hold:
+
+- The PR is open, not a draft, and has no merge conflict.
+- The latest head has completed the repository-required review process and
+  relevant tests; required checks are successful and no applicable Copilot or
+  reviewer finding, correctness issue or security blocker remains unresolved.
+- Any intended product/API decision is already settled; low stars do not
+  authorize unrelated behavior changes.
+- Refresh the PR head, check/review state and star count at the point of merge,
+  and bind the merge request to that reviewed head (for example with
+  `gh pr merge --match-head-commit`). If the head changed, revalidate it first.
+
+Use a repository-supported merge method without bypassing branch protection.
+If the star count or required evidence is unavailable, preserve the item for
+follow-up rather than guessing. Use the agent's immediate merge after these
+gates; do not enable deferred GitHub auto-merge or enqueue it in a merge queue,
+where the head or star count could change after the authorization check.
+Verify the resulting merged state and record its commit and PR link. Never
+delete the contributor branch as part of this action.
+
+This replaces both the earlier all-manual-merge rule and the old named
+ActPlane/wasm-bpf exceptions: every in-scope repository uses the same threshold.
 All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Name Branches, Commits, and Pull Requests Neutrally
@@ -302,8 +331,9 @@ All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Never Perform These Actions
 
-- Merge any pull request, enable auto-merge, or enqueue it for merging. The
-  final merge belongs to the user, including in ActPlane and wasm-bpf.
+- Merge a PR whose target repository has 500 or more stars, or merge without
+  satisfying the live-star policy above. Never enable deferred auto-merge or
+  enqueue a PR in a merge queue.
 - Publish a release.
 - Close an issue or pull request.
 - Delete a branch.
@@ -321,7 +351,7 @@ Write a concise, actionable Chinese report that includes:
 - total open items discovered and total actionable items;
 - actual public replies;
 - fixes and newly opened pull requests;
-- updated pull requests;
+- updated pull requests and verified merges;
 - tracked items with no new public action;
 - items blocked by a reporter, runner, reviewer, maintainer, CI or
   infrastructure, or the task itself;
