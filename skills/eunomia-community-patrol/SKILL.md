@@ -210,11 +210,38 @@ Without per-item confirmation, and only in `eunomia-bpf`, the task may:
   push, and open a pull request;
 - address clear review or automated-review feedback, push corrections, and
   reply with the result;
-- update maintenance branches and pull requests created or owned by the task.
+- update maintenance branches and pull requests created or owned by the task;
+- review and approve pending GitHub Actions runs for the current pull-request
+  head, and rerun CI after a verified transient failure as described below.
 
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing labels, assignees, or milestones.
+
+### GitHub Actions approval and CI follow-up
+
+The patrol owns routine workflow-run approval. When a current pull request is
+waiting for approval (`action_required`), review its exact head diff, relevant
+workflow definitions, and changed scripts or dependencies executed by those
+workflows. If the code is reasonable to run in the existing CI environment and
+there is no concrete unsafe execution concern, approve the matching pending
+runs immediately without asking the user. Do not wait for CI to pass before
+allowing CI to run, or label this routine approval as a maintainer blocker.
+
+Recheck the PR head and run identity immediately before approval. Use the
+workflow-run approval endpoint (`POST repos/{owner}/{repo}/actions/runs/{run_id}/approve`)
+for that fork PR run. This authorizes CI execution, not PR approval or merge,
+repository permission changes, or deployment/release environment approvals.
+If review finds a concrete execution risk or the existing credential cannot
+approve, record the exact finding or API failure and required external action.
+
+After approval, verify that execution actually starts and follow the checks to
+a terminal result. Diagnose failures; rerun a verified transient failure once,
+then investigate recurrence instead of looping. Route a reproducible code
+failure through the already authorized fix workflow. Preserve run URLs, head,
+approval result and unfinished follow-up in private continuity state; resume
+at the next scheduled run if the current run reaches its execution deadline.
+An approved or running workflow is not a passed check.
 
 ### ActPlane and wasm-bpf contributor exception
 
