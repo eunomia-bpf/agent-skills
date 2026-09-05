@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and narrowly approve or merge eligible ActPlane and wasm-bpf contributions.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness while leaving every final merge to the user.
 ---
 
 # Eunomia Community Patrol
@@ -14,7 +14,9 @@ deduplication records outside the repository.
 - Operate only in the `eunomia-bpf` GitHub organization.
 - Inspect every public repository that is neither archived nor a fork.
 - Inspect every open issue and open pull request.
-- Perform GitHub writes only in `eunomia-bpf` repositories.
+- Perform GitHub writes in `eunomia-bpf` repositories; the contributor-repair
+  authorization below also permits scoped commits to the exact writable fork
+  branch of a pull request targeting this organization.
 - Run in the Linux maintenance workspace. Do not redirect the task to Windows
   or PowerShell.
 - Schedule the patrol for 09:00 `America/Vancouver` every calendar day. A
@@ -177,8 +179,9 @@ GitHub or commit it.
   roadmap priority, support commitments, timelines, public behavior or API
   choices, acceptance or rejection, merge or closure decisions, and ownership
   or milestone choices.
-  The narrowly authorized ActPlane and wasm-bpf contributor exception below is
-  not decision-blocked once all of its explicit merge gates are satisfied.
+  Routine bug fixes, contributor-PR repairs, workflow-run approvals and
+  evidence-backed code reviews are already authorized below. The final merge
+  remains the user's action in every repository, including ActPlane and wasm-bpf.
 - For a decision-blocked item, summarize the evidence, viable options, and
   tradeoffs; state exactly what remains to be decided; mark the responsible
   user or maintainer as the blocker; and continue tracking without repetitive
@@ -202,7 +205,8 @@ GitHub or commit it.
 
 ## Authorized Writes
 
-Without per-item confirmation, and only in `eunomia-bpf`, the task may:
+Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
+(and their exact contributor branches as described below), the task may:
 
 - comment with a specific reproduction request, classification, investigation
   result, CI or review blocker, or contributor response;
@@ -211,6 +215,11 @@ Without per-item confirmation, and only in `eunomia-bpf`, the task may:
 - address clear review or automated-review feedback, push corrections, and
   reply with the result;
 - update maintenance branches and pull requests created or owned by the task;
+- proactively repair other contributors' pull requests, push focused fixes to
+  their exact writable PR branch, and respond to or resolve addressed review
+  threads after verifying the changes;
+- submit evidence-backed PR reviews, including approval when review and
+  relevant validation support it; PR approval never authorizes merging;
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
@@ -243,35 +252,42 @@ approval result and unfinished follow-up in private continuity state; resume
 at the next scheduled run if the current run reaches its execution deadline.
 An approved or running workflow is not a passed check.
 
-### ActPlane and wasm-bpf contributor exception
+### Own maintenance through merge readiness
 
-For pull requests in `eunomia-bpf/ActPlane` and `eunomia-bpf/wasm-bpf`, favor
-helping an external contributor or Dependabot land a sound contribution instead
-of blocking it over minor style, process, documentation, test, or compatibility
-gaps.
+The Workspace-resident patrol agents own routine execution and continuation.
+The supervising desktop agent configures the duty, checks progress, recovers a
+stuck execution path and reports to the user; it should not become a second
+parallel maintainer loop or take over routine implementation from the workers.
 
-Without per-item confirmation, the task may:
+Own bug reports and contributor pull requests through reproduction, diagnosis,
+focused fixes, meaningful tests, push, workflow-run approval, CI monitoring,
+and Copilot/reviewer feedback closure. Do not stop at a review comment asking
+someone else to fix a problem that the task can repair under this authorization.
+Use the configured local OpenCode workers for source implementation and tests;
+the coordinator owns communication, dispatch, evidence reconciliation and
+continuation. Work in the matching managed project Workspace.
 
-- make a small, narrowly scoped correction directly on a writable contributor
-  branch, then validate, push, and approve the pull request;
-- approve an otherwise sound contribution after relevant validation; and
-- merge the pull request after verifying the exact head revision when it is not
-  a draft, has no merge conflict, has no unresolved security or correctness
-  blocker, and its core relevant checks pass.
+For someone else's PR, preserve its intended behavior and contributor work.
+Refresh the current head and coordinate with any active work before pushing
+focused, forward-only commits to that exact writable branch. This includes a
+fork branch only when it is the head of an open PR targeting `eunomia-bpf`;
+it does not authorize unrelated writes in the fork. If the branch is not
+writable, prepare and validate the fix on a task-owned branch in the target
+repository and open a linked replacement/follow-up PR or provide the patch.
+Preserve the original PR and explain the relationship to the contributor.
 
-A small correction is a localized build, compatibility, documentation, or test
-fix that does not introduce a new architecture, change intended public
-semantics, or broaden the contribution. A verified external registry, network,
-runner, or infrastructure failure that does not arise from the proposed change
-may be documented and need not block approval or merge when the core relevant
-checks are otherwise conclusive.
+When appropriate tests and reviews pass, recheck the current head, mergeability,
+required checks and outstanding review threads, then report it ready for the
+user to merge. Keep watching for later pushes and regressions. A concrete lack
+of access, evidence, required hardware, or an unresolved product/API decision
+must name the missing input; merely belonging to another author is not a
+blocker. Preserve scope and avoid architecture or public-semantics changes
+unrelated to the reported bug or contribution.
 
-Do not use this exception to merge deterministic failing code, drafts,
-conflicted pull requests, unresolved core review findings, or changes with a
-security or correctness blocker. Do not extend this merge authority to another
-repository without an explicit user instruction and a versioned skill update.
-Every patrol-authored public review or comment still requires the disclosure
-footer above.
+The user performs every final PR merge. Never invoke a merge API/CLI, enable
+auto-merge, enqueue a PR in a merge queue, or otherwise arrange an automatic
+merge. This supersedes the former ActPlane and wasm-bpf auto-merge exception.
+All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Name Branches, Commits, and Pull Requests Neutrally
 
@@ -286,14 +302,15 @@ footer above.
 
 ## Never Perform These Actions
 
-- Merge a pull request outside the narrowly authorized ActPlane and wasm-bpf
-  contributor exception.
+- Merge any pull request, enable auto-merge, or enqueue it for merging. The
+  final merge belongs to the user, including in ActPlane and wasm-bpf.
 - Publish a release.
 - Close an issue or pull request.
 - Delete a branch.
 - Change access permissions, organization or repository settings, branch
   protection, secrets, webhooks, or deployment configuration.
-- Write to a repository outside `eunomia-bpf`.
+- Write outside `eunomia-bpf` except for focused commits to the exact writable
+  contributor PR branch allowed above.
 - Expose credentials, tokens, private logs, or sensitive environment details in
   GitHub content, commits, branch names, pull request text, or reports.
 
