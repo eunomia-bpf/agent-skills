@@ -92,6 +92,13 @@ relevant thread or comment. Continue tracking until the pull request is ready
 for a maintainer to merge, explicitly rejected or closed, or blocked only by a
 maintainer, reviewer, reporter, runner, or external infrastructure.
 
+This applies equally to pull requests opened by the user and by other
+contributors. When their CI failure is caused by the proposed code and the fix
+is clear, implement and validate the repair, then push a focused forward-only
+commit directly to the existing PR head branch when it is writable; do not stop
+at describing the patch or asking the author to make a change the patrol can
+already make safely.
+
 ### Missing information
 
 Post one concise and specific request for the minimum information needed, such
