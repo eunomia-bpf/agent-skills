@@ -210,6 +210,11 @@ GitHub or commit it.
 - Apply this disclosure only to public GitHub replies authored by the patrol.
   Do not add it to pull request bodies, branch names, commit messages, release
   text, repository documentation, or unrelated open-source work.
+- Before sending public text through a shell-backed GitHub client, use a
+  literal-safe body file or stdin/input mechanism. Never interpolate Markdown
+  backticks, command substitutions, or shell variables into a command string;
+  re-read the published body immediately and correct any rendering or
+  expansion damage before continuing.
 
 ## Authorized Writes
 
