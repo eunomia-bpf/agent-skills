@@ -259,8 +259,11 @@ After approval, verify that execution actually starts and follow the checks to
 a terminal result. Diagnose failures; rerun a verified transient failure once,
 then investigate recurrence instead of looping. Route a reproducible code
 failure through the already authorized fix workflow. Preserve run URLs, head,
-approval result and unfinished follow-up in private continuity state; resume
-at the next scheduled run if the current run reaches its execution deadline.
+approval result and genuinely external unfinished follow-up in private
+continuity state. A local execution deadline, model timeout, failed provider
+preflight, or coordinator route failure is not an external blocker and does
+not justify ending useful authorized work; continue directly or select another
+available implementation path, and record avoidable non-delivery as incomplete.
 An approved or running workflow is not a passed check.
 
 ### Own maintenance through merge readiness
@@ -277,6 +280,15 @@ someone else to fix a problem that the task can repair under this authorization.
 Use the configured local OpenCode workers for source implementation and tests;
 the coordinator owns communication, dispatch, evidence reconciliation and
 continuation. Work in the matching managed project Workspace.
+
+Local model unavailability never makes an otherwise reproducible fix someone
+else's responsibility. After preserving any partial worker result, the
+coordinator may implement and validate the scoped repair directly. Provider
+preflights are capability hints, not patrol gates: try the actual safe route or
+another available route before declaring it unavailable. Unrelated dirty files
+in the control checkout or another repository do not block work in a clean
+matching Workspace; preserve them and restrict every status, edit, stage and
+commit operation to the intended repository and paths.
 
 For someone else's PR, preserve its intended behavior and contributor work.
 Refresh the current head and coordinate with any active work before pushing
