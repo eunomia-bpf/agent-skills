@@ -282,9 +282,11 @@ Own bug reports and contributor pull requests through reproduction, diagnosis,
 focused fixes, meaningful tests, push, workflow-run approval, CI monitoring,
 and Copilot/reviewer feedback closure. Do not stop at a review comment asking
 someone else to fix a problem that the task can repair under this authorization.
-Use the configured local OpenCode workers for source implementation and tests;
+Drive source implementation and tests through the pinned OMP binary
+(`$STATE_ROOT/bin/omp --model litellm/local-small`, via the internal gateway);
 the coordinator owns communication, dispatch, evidence reconciliation and
-continuation. Work in the matching managed project Workspace.
+continuation. Work in the matching managed project Workspace. OpenCode is not
+used for this patrol.
 
 Local model unavailability never makes an otherwise reproducible fix someone
 else's responsibility. After preserving any partial worker result, the
