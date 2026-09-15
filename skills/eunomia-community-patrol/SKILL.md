@@ -306,6 +306,12 @@ writable, prepare and validate the fix on a task-owned branch in the target
 repository and open a linked replacement/follow-up PR or provide the patch.
 Preserve the original PR and explain the relationship to the contributor.
 
+Test branch write access without writing: use a dry-run push or a
+task-owned throwaway branch, never a probe commit on the contributor's head
+branch. A probe commit is a real push to a contributor's branch, triggers CI,
+and has to be force-reverted; treat it as an avoidable delivery incident even
+after the original head is restored.
+
 When appropriate tests and reviews pass, recheck the current head, mergeability,
 required checks and outstanding review threads, then apply the live-star merge
 policy below. Keep watching for later pushes and regressions. A concrete lack
