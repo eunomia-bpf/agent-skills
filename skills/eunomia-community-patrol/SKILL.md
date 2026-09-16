@@ -152,6 +152,12 @@ security channel.
   decision or write, inaccessible credentials, hardware, or runner capacity, or
   action from a named reporter, reviewer, or maintainer. Run duration, queue
   size, or having documented the next step is not a blocker.
+- Record a blocker against the narrowest item it actually covers. Do not group
+  unrelated items under one shared reason: a batch of pull requests from one
+  author may mix prose-only research batches, which need a maintainer content
+  decision, with ordinary code fixes, which the patrol can review, repair, and
+  merge. Classify each item from its own diff before carrying it forward, and
+  re-derive a grouped blocker when its members differ.
 - Do not repeat a public comment without new evidence, a changed blocker, a new
   fix, a validation result, or a clear request for another party.
 - Keep an unchanged item in local memory and report it as continuing follow-up
@@ -296,6 +302,16 @@ another available route before declaring it unavailable. Unrelated dirty files
 in the control checkout or another repository do not block work in a clean
 matching Workspace; preserve them and restrict every status, edit, stage and
 commit operation to the intended repository and paths.
+
+A missing build or test toolchain is a reachable-work problem, not a blocker.
+Before deferring a dependency or build change to a maintainer, check whether the
+toolchain can be installed into the workspace: a Go module bump needs only the
+Go tarball and a reachable module proxy, and a language runtime, compiler, or
+loader can usually be fetched the same way. Install it under
+`/workspaces/`, build and test the exact contributor head, and record the real
+result. Record an item as blocked only when the required input is genuinely
+unobtainable, such as exclusive hardware, a private credential, or a platform
+the workspace cannot emulate, and name that input in the record.
 
 For someone else's PR, preserve its intended behavior and contributor work.
 Refresh the current head and coordinate with any active work before pushing
