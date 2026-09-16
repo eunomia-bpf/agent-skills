@@ -64,6 +64,15 @@ Check:
 - whether a previously handled item has new evidence, failures, reviews, CI
   results, or maintainer decisions.
 
+When deciding what a pull request actually changes, diff it against its merge
+base (`git merge-base <base-ref> <pr-head>`), not against the current base
+branch tip. A two-dot diff against a base that has moved since the branch was
+cut inverts unrelated commits and reports them as this pull request's
+deletions, which can make an additive change look like it reverts work already
+merged. Confirm a suspected revert by checking the merge base, and by simulating
+the merge (`git merge --no-commit --no-ff`) and inspecting the files that
+matter, before writing any conclusion about it.
+
 Do not count inspection as handling. Take one concrete action for every
 actionable item and record the result.
 
@@ -312,6 +321,13 @@ loader can usually be fetched the same way. Install it under
 result. Record an item as blocked only when the required input is genuinely
 unobtainable, such as exclusive hardware, a private credential, or a platform
 the workspace cannot emulate, and name that input in the record.
+
+Distinguish a broken change from a broken local build before reporting either.
+An impossible-looking compiler error, such as a Go import failing with an
+expected-marker message, is usually a corrupted build cache rather than a defect
+in the change, and it can persist across retries and even reproduce only on the
+newer revision. Repeat the build with a fresh cache directory before drawing a
+conclusion, and confirm that the unmodified base builds with the same cache.
 
 For someone else's PR, preserve its intended behavior and contributor work.
 Refresh the current head and coordinate with any active work before pushing
