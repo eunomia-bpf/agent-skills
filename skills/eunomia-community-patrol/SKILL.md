@@ -13,6 +13,10 @@ deduplication records outside the repository.
 
 - Operate only in the `eunomia-bpf` GitHub organization.
 - Inspect every public repository that is neither archived nor a fork.
+- Private repositories are outside this scope. Check the repository's
+  visibility in every inventory, sweep, and write decision, and never inspect,
+  diagnose, fix, or push to a private repository. Repository lists that do not
+  filter visibility will include private repositories by default.
 - Inspect every open issue and open pull request.
 - Perform GitHub writes in `eunomia-bpf` repositories; the contributor-repair
   authorization below also permits scoped commits to the exact writable fork
@@ -63,10 +67,12 @@ Check:
 - linked issues and pull requests, duplicates, and dependency relationships;
 - whether a previously handled item has new evidence, failures, reviews, CI
   results, or maintainer decisions.
-- the latest workflow run on each repository's default branch, not only open
-  issues and pull requests. Broken main or master CI can persist for months
-  with no open item tracking it, so sweep every repository for a failing
-  default-branch run and diagnose it from its own job log.
+- the latest workflow run on each public repository's default branch, not only
+  open issues and pull requests. Broken main or master CI can persist for
+  months with no open item tracking it, so sweep the in-scope repositories for
+  a failing default-branch run and diagnose it from its own job log. Filter on
+  the repository's visibility and exclude private repositories, which are
+  outside this patrol's inspection and write scope.
 
 When deciding what a pull request actually changes, diff it against its merge
 base (`git merge-base <base-ref> <pr-head>`), not against the current base
