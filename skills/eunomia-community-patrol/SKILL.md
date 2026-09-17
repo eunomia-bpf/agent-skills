@@ -63,6 +63,10 @@ Check:
 - linked issues and pull requests, duplicates, and dependency relationships;
 - whether a previously handled item has new evidence, failures, reviews, CI
   results, or maintainer decisions.
+- the latest workflow run on each repository's default branch, not only open
+  issues and pull requests. Broken main or master CI can persist for months
+  with no open item tracking it, so sweep every repository for a failing
+  default-branch run and diagnose it from its own job log.
 
 When deciding what a pull request actually changes, diff it against its merge
 base (`git merge-base <base-ref> <pr-head>`), not against the current base
@@ -169,6 +173,11 @@ security channel.
   re-derive a grouped blocker when its members differ.
 - Do not repeat a public comment without new evidence, a changed blocker, a new
   fix, a validation result, or a clear request for another party.
+- Before restating an earlier public claim that something is fixed, re-examine
+  the runs that came after that fix. A repair often lets execution proceed far
+  enough to expose the next failure in the same run, so an item can be
+  simultaneously fixed for one error and still failing overall. Correct the
+  record with the new evidence rather than repeating the stale claim.
 - Keep an unchanged item in local memory and report it as continuing follow-up
   with no new public action.
 - Count discovery, actionable items, public replies, newly opened pull requests,
@@ -343,6 +352,14 @@ task-owned throwaway branch, never a probe commit on the contributor's head
 branch. A probe commit is a real push to a contributor's branch, triggers CI,
 and has to be force-reverted; treat it as an avoidable delivery incident even
 after the original head is restored.
+
+Before pushing a fix to a repository whose workflows act on `push`, read those
+workflows for side effects the patrol is not allowed to cause, such as cutting a
+release or publishing a package. If the fix itself must not trigger them, use
+the repository's own suppression convention, for example a `[skip ci]` trailer
+that the job guard already honors, and confirm after pushing that no run started
+and no release or artifact appeared. Publish a release only when the user asked
+for it.
 
 When appropriate tests and reviews pass, recheck the current head, mergeability,
 required checks and outstanding review threads, then apply the live-star merge
