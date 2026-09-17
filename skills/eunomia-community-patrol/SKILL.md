@@ -118,6 +118,16 @@ commit directly to the existing PR head branch when it is writable; do not stop
 at describing the patch or asking the author to make a change the patrol can
 already make safely.
 
+Before reporting a failing workflow as fixed, walk the entire job to its end
+rather than stopping at the first error you reproduced. A job commonly has
+several independent blockers, and clearing the first one only exposes the next:
+reproduce the full command the job runs, confirm each stage in order, and when a
+later stage still fails, say so and name the missing prerequisite instead of
+describing the job as green. Likewise, if a workflow was deliberately kept from
+running, such as a push-triggered release job suppressed with a skip marker,
+report the fix as reasoned from source and not yet observed passing, never as
+verified.
+
 ### Missing information
 
 Post one concise and specific request for the minimum information needed, such
