@@ -202,6 +202,27 @@ rather than presenting it as newly discovered.
 
 Never copy advisory text, exploit steps, or payloads into public text.
 
+### Verifying a dependency bump
+
+A lockfile diff is a claim about artifacts, so verify it against the registry
+rather than trusting the diff. Fetch the published package for the target
+version (for Rust crates, `https://static.crates.io/crates/<name>/<name>-<version>.crate`)
+and compare its digest to the checksum recorded in the lockfile. Also confirm
+the target version is an actual release, and check whether the change stays
+within a compatible version range or crosses a major version.
+
+Then confirm the new version was actually built and exercised. A lockfile-only
+diff can pass CI without the dependency being compiled if the affected crate is
+not on the tested path, so look in the job log for the dependency being
+downloaded and compiled and for the tests that cover it running. That is much
+stronger evidence than a green check name.
+
+Read a release or publish job's meaning from its log, not its status. Many
+repositories gate publishing on a version-existence check, so a job that
+reports success may have published nothing because the version was already
+present. Before treating a successful publish job as a release, confirm which
+branch it took, and report the no-op case as such.
+
 ## Follow Through Without Spamming
 
 - Recheck every item previously replied to, classified, opened, or updated, and
