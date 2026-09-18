@@ -223,6 +223,22 @@ reports success may have published nothing because the version was already
 present. Before treating a successful publish job as a release, confirm which
 branch it took, and report the no-op case as such.
 
+A new or modified test proves nothing if the build that runs it is disabled.
+Advertising a green check is not the same as the test executing, so trace the
+new test file to the job that compiles it: find the workflow that enables the
+component being tested, confirm from its log that the file was compiled, and
+look for the suite's own result line at that revision. Build flags commonly
+turn whole components off by default, so the workflow that appears to cover an
+area may build it disabled, and only a different workflow may actually exercise
+it. Say which job ran the test, or say plainly that no job does.
+
+When a local build fails for environmental reasons such as storage or network
+faults, do not keep rebuilding to force a local reproduction. The continuous
+integration log for the exact revision is usually better evidence anyway, since
+it shows the real test compiling and passing in the project's own environment.
+Record the environmental fault as such rather than as a finding about the
+change.
+
 ## Follow Through Without Spamming
 
 - Recheck every item previously replied to, classified, opened, or updated, and
