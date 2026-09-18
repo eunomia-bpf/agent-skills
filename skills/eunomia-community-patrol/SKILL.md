@@ -83,6 +83,22 @@ merged. Confirm a suspected revert by checking the merge base, and by simulating
 the merge (`git merge --no-commit --no-ff`) and inspecting the files that
 matter, before writing any conclusion about it.
 
+A shallow clone has no merge base, so that comparison silently produces a bogus
+diff full of deletions that do not exist. If a diff shows a pull request
+removing code you believe it never touched, run `git fetch --unshallow` (or fetch
+the base branch) and diff again before reporting anything. The same applies to
+reading files by revision: confirm the ref resolves to the commit you think it
+does, since a stale local ref will happily answer questions about the wrong
+revision.
+
+Before acting on a finding from an automated review, check whether the thread is
+marked outdated and whether the code it describes still exists at the current
+head. Reviewers commonly comment on an older commit, and a thread whose
+`isOutdated` flag is set has usually been overtaken by a later push. Verify each
+claim against the head revision, report the ones that no longer apply with the
+evidence that disproves them, and only then change code. Never "fix" something
+twice because a bot described a revision that is no longer current.
+
 Do not count inspection as handling. Take one concrete action for every
 actionable item and record the result.
 
