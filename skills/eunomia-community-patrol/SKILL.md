@@ -177,6 +177,31 @@ payloads publicly. When the matter cannot be handled safely in public, do not
 post sensitive details. Alert the user and direct the report to the private
 security channel.
 
+### Dependency and security alerts
+
+Open dependency alerts are part of the state worth inspecting, since they can
+stay open for years and no issue or pull request tracks them. List them with the
+repository's alert endpoint, for example
+`gh api "repos/<owner>/<repo>/dependabot/alerts?state=open&per_page=100"`, and
+group the results by severity and by manifest path.
+
+Before treating an alert as actionable, check that its manifest still exists on
+the default branch. Alerts persist against paths that have since been deleted,
+so a repository can carry critical alerts for a directory that no longer
+contains any such dependency. Verify the manifest and the absent directory
+before reporting anything, and never describe a stale alert as a live
+vulnerability.
+
+Do not upgrade dependencies, dismiss or resolve alerts, or change alert
+settings: those are outside the authorized writes. Establish whether a real
+upgrade is available, whether the pinned version would need a major-version
+jump, and how long the alert has been open, then report it as a maintainer
+decision with that evidence. A dependency pinned far behind its patched release
+for years is usually a deliberate deferral rather than an oversight, and say so
+rather than presenting it as newly discovered.
+
+Never copy advisory text, exploit steps, or payloads into public text.
+
 ## Follow Through Without Spamming
 
 - Recheck every item previously replied to, classified, opened, or updated, and
