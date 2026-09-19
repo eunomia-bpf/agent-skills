@@ -49,6 +49,18 @@ priority item.
    target repository's `AGENTS.md`, `CONTRIBUTING`, `SECURITY.md`, `README`, and
    relevant workflows.
 
+Page every inventory and sweep to completion rather than reading the first
+response. A single search or list call returns at most one page, so an
+organization with more open items than fit on it will silently look fully
+covered: a scan that queries open issues with a per-page size of 100 reports
+only the first 100 of, for example, 226, and the remainder is absent from the
+result with no error. Compare the number of rows you actually examined against
+the reported total (for example the issue and pull request counts from a
+GraphQL `search`), paginate with the client's follow-the-next-page flag until
+that total is reached, and treat "no unresolved items" as unproven until the two
+numbers agree. This applies equally to dependency alerts, check runs, comments
+on a long thread, and repository inventories.
+
 If this skill or a required repository policy cannot be read, do not guess at
 the missing authorization. Record the blocker and continue only with safe,
 read-only work elsewhere in scope.
