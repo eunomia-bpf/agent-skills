@@ -481,6 +481,18 @@ confirmation only after all of these conditions hold:
   and bind the merge request to that reviewed head (for example with
   `gh pr merge --match-head-commit`). If the head changed, revalidate it first.
 
+A pull request reporting a mergeable state of blocked with no review decision is
+usually waiting on a required approving review, not on a failing check. Read the
+default branch's protection settings to see what it actually requires: the
+number of required approving reviews and the list of required status checks are
+separate, and a repository can require a review while requiring no checks at
+all. When an approval is what is missing and review plus relevant validation
+support it, submitting the evidence-backed approval is an authorized action that
+unblocks the item; do not report a required review as an external blocker when
+the patrol can satisfy it. Note that this applies to merge eligibility under the
+gate above, not to repositories at or above the star threshold, where the final
+merge still belongs to the user.
+
 Use a repository-supported merge method without bypassing branch protection.
 If the star count or required evidence is unavailable, preserve the item for
 follow-up rather than guessing. Use the agent's immediate merge after these
