@@ -493,6 +493,14 @@ the patrol can satisfy it. Note that this applies to merge eligibility under the
 gate above, not to repositories at or above the star threshold, where the final
 merge still belongs to the user.
 
+A review approval is attached to the commit it was submitted against, so a
+later push leaves that approval pointing at a superseded head. When reporting an
+item as ready, check each approving review's commit against the current head
+rather than only counting approvals: a pull request that shows an approval and a
+green check set may still have no review covering the revision that would merge.
+Say which revision the approval covers when it is not the head, and treat the
+item as awaiting re-review rather than as ready.
+
 Use a repository-supported merge method without bypassing branch protection.
 If the star count or required evidence is unavailable, preserve the item for
 follow-up rather than guessing. Use the agent's immediate merge after these
