@@ -401,6 +401,17 @@ not justify ending useful authorized work; continue directly or select another
 available implementation path, and record avoidable non-delivery as incomplete.
 An approved or running workflow is not a passed check.
 
+Read a mergeable pull request's failure state from a complete, paginated set of
+check runs and workflow runs, not from the first page or from the checks API
+alone. A busy pull request can carry well over one page of check runs, and the
+failing job is frequently not on the first page: a query capped at 100 runs over
+146 will report no failures while the failing job sits in the omitted 46. The
+checks API can also omit a failing job that the workflow-runs list still shows,
+so confirm both. Compare the returned count against `total_count`, page to the
+end, and cross-check the workflow-run list for the same head. Treat "all checks
+green" as unproven until those agree, the same way an un-paginated inventory is
+unproven.
+
 ### Own maintenance through merge readiness
 
 The Workspace-resident patrol agents own routine execution and continuation.
