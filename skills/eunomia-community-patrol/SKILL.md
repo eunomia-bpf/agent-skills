@@ -369,6 +369,19 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
+Submit an approval as the reviewer only when the approval is genuinely
+independent of the work under review. If the patrol pushed one or more commits
+to the pull request, including a repair to a contributor branch or a PR the task
+created, it is a partial author of that revision, so its approval cannot serve as
+the repository's required independent review of that head. In that case, state
+that the head still needs an approving review from someone else rather than
+self-approving; the contributors whose branches were repaired should receive the
+approval from the maintainer or another reviewer. Approving a head the patrol
+authored adds no unblocking value at a repository that also grants merge bypass
+to a maintainer, and it would present self-review as independent validation.
+Record which revision the patrol authored so a later run does not treat the
+missing review as an oversight it can satisfy.
+
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing labels, assignees, or milestones.
