@@ -79,12 +79,11 @@ Check:
 - linked issues and pull requests, duplicates, and dependency relationships;
 - whether a previously handled item has new evidence, failures, reviews, CI
   results, or maintainer decisions.
-- the latest workflow run on each public repository's default branch, not only
-  open issues and pull requests. Broken main or master CI can persist for
-  months with no open item tracking it, so sweep the in-scope repositories for
-  a failing default-branch run and diagnose it from its own job log. Filter on
-  the repository's visibility and exclude private repositories, which are
-  outside this patrol's inspection and write scope.
+- the relevant workflow runs and checks for the current HEAD of each public
+  repository's default branch. Report build, test and publish/release outcomes
+  separately, including failed, pending, skipped or missing runs. One green
+  workflow does not make the repository green; older-commit results do not
+  validate the current HEAD. Diagnose each failure from its own job log.
 
 When deciding what a pull request actually changes, diff it against its merge
 base (`git merge-base <base-ref> <pr-head>`), not against the current base
