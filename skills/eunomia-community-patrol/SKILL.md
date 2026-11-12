@@ -23,6 +23,8 @@ Operator, 2026-11-12, verbatim:
 
 > “重点是改 skills 吧? prompt 里面提醒一下, 但是 skills 为准”
 
+> “禁止 hold-queue”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
@@ -34,8 +36,11 @@ differently, this section applies.
   authored, ours, held, waiting on the user, unchanged, draft or without new
   evidence.
 - Publish every review and every finding. Nothing is drafted and kept
-  unpublished, and there is no hold queue: an item kept in memory without a
-  published review of its current head is reviewed and published in this run.
+  unpublished.
+- A hold queue is forbidden. Keep no list, section or label of held items in
+  memory or reports, and never record an item as held. An item that an older
+  memory lists as held is reviewed and published in this run, then tracked like
+  any other item.
 - Where GitHub forbids an approval (the head belongs to the posting account, or
   the patrol pushed to it), publish the same review as a comment review.
   Withholding the approval state never withholds the review.
