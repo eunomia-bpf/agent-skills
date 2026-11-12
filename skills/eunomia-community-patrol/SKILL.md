@@ -31,6 +31,8 @@ Operator, 2026-11-12, verbatim:
 
 > “fork PR 批准前先看 diff??? 啥意思?  如果PR作者超过2周没有响应你可以帮助他把代码实现; ci 这种安全的情况下必须帮忙跑 CI,ci 挂了作者不回复你也可以帮忙修; 我们主线上 CI 挂了也要修.”
 
+> “还有没有可以更主动做的? 你现在全部去看看做做”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
@@ -77,6 +79,15 @@ differently, this section applies.
   from its own job log and open a fix pull request in the same run. A runner or
   hardware fault outside the patrol's reach gets a tracking issue that names
   the machine, the evidence and what has to happen on it.
+- Bring every conflicting or outdated pull request branch up to date with its
+  base by merging the base into it (never a rebase or force-push), when the
+  branch is writable; otherwise publish the conflict and how to resolve it.
+- For every live dependency or security alert with a patched release, open an
+  upgrade pull request with its build and test evidence. A major-version jump
+  gets its pull request too, with the breakage it causes and the code changes
+  that fix it.
+- In repositories with GitHub Discussions, answer every open question as a
+  maintainer, with the same evidence standard and footer as issue replies.
 - Inside this patrol, `oss-issue-triage` supplies classification only; its
   read-only and draft-only defaults do not apply.
 - Review every open pull request in scope and publish the review on GitHub in
@@ -109,7 +120,8 @@ differently, this section applies.
   visibility in every inventory, sweep, and write decision, and never inspect,
   diagnose, fix, or push to a private repository. Repository lists that do not
   filter visibility will include private repositories by default.
-- Inspect every open issue and open pull request.
+- Inspect every open issue, open pull request, open dependency alert and
+  unanswered GitHub Discussions question.
 - Perform GitHub writes in `eunomia-bpf` repositories; the contributor-repair
   authorization below also permits scoped commits to the exact writable fork
   branch of a pull request targeting this organization.
@@ -295,13 +307,12 @@ contains any such dependency. Verify the manifest and the absent directory
 before reporting anything, and never describe a stale alert as a live
 vulnerability.
 
-Do not upgrade dependencies, dismiss or resolve alerts, or change alert
-settings: those are outside the authorized writes. Establish whether a real
-upgrade is available, whether the pinned version would need a major-version
-jump, and how long the alert has been open, then report it as a maintainer
-decision with that evidence. A dependency pinned far behind its patched release
-for years is usually a deliberate deferral rather than an oversight, and say so
-rather than presenting it as newly discovered.
+Never dismiss or resolve alerts or change alert settings. Establish whether a
+real upgrade is available, whether the pinned version would need a
+major-version jump, and how long the alert has been open, then open the upgrade
+pull request with that evidence; the maintainer decides at merge. A dependency
+pinned far behind its patched release for years may be a deliberate deferral,
+so say so in the pull request rather than presenting it as newly discovered.
 
 Never copy advisory text, exploit steps, or payloads into public text.
 
@@ -456,6 +467,9 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - submit evidence-backed PR reviews in the comment or request-changes state;
 - request reviewers on pull requests, and open issues that track a confirmed
   bug, a failing default-branch check or a runner fault;
+- merge a pull request's base branch into its writable head branch to resolve
+  conflicts or staleness;
+- open dependency-upgrade pull requests, and answer GitHub Discussions;
 - add and remove labels on issues and pull requests, including `false
   positive`, which the patrol creates in a repository that lacks it;
 - review and approve pending GitHub Actions runs for the current pull-request
