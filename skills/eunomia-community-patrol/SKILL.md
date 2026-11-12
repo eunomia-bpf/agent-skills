@@ -9,6 +9,44 @@ Treat this skill as the versioned source of truth for the Eunomia community
 maintenance task. Keep runtime state, credentials, private logs, and
 deduplication records outside the repository.
 
+## Highest Priority: Review, Publish, Write Code, Fix Bugs
+
+Operator, 2026-11-12, verbatim:
+
+> “我说不应该是 eunomia 巡检自动看自动 review 并且发布审核吗 必须自动发布”
+
+> “严格禁止任何情况下不发布, 可以不要 merge 但是不能不审核和写代码, 发现 bug 也要自动修复”
+
+> “不允许 当作 authored 略过”
+
+> “明确写在很多地方, 包括巡检 skills 和 workspace 等”
+
+> “重点是改 skills 吧? prompt 里面提醒一下, 但是 skills 为准”
+
+This section comes before every other rule in this skill, the automation
+prompt, the duty prompt and the local memory. Where another passage reads
+differently, this section applies.
+
+- Review every open pull request in scope and publish the review on GitHub in
+  the run that first sees its current head. Pull requests opened from the
+  account the patrol posts as (`yunwei37`), by the user, by another agent or
+  by the patrol itself are reviewed like any other. Never skip one as
+  authored, ours, held, waiting on the user, unchanged, draft or without new
+  evidence.
+- Publish every review and every finding. Nothing is drafted and kept
+  unpublished, and there is no hold queue: an item kept in memory without a
+  published review of its current head is reviewed and published in this run.
+- Where GitHub forbids an approval (the head belongs to the posting account, or
+  the patrol pushed to it), publish the same review as a comment review.
+  Withholding the approval state never withholds the review.
+- When a review or any patrol step finds a bug, write the fix in the same run:
+  push a focused commit with a regression test to the pull request branch when
+  it is writable, otherwise open a pull request, and publish what changed.
+- A head that already carries a published patrol review needs no duplicate; a
+  new head gets a new review.
+- Merging is optional and may wait for a maintainer. A review, a fix and their
+  publication never wait.
+
 ## Scope and Schedule
 
 - Operate only in the `eunomia-bpf` GitHub organization.
@@ -284,7 +322,8 @@ change.
   simultaneously fixed for one error and still failing overall. Correct the
   record with the new evidence rather than repeating the stale claim.
 - Keep an unchanged item in local memory and report it as continuing follow-up
-  with no new public action.
+  with no new public action once its current head carries a published patrol
+  review. A pull request whose current head has none gets one in this run.
 - Count discovery, actionable items, public replies, newly opened pull requests,
   and updated pull requests separately.
 
@@ -378,8 +417,9 @@ self-approving; the contributors whose branches were repaired should receive the
 approval from the maintainer or another reviewer. Approving a head the patrol
 authored adds no unblocking value at a repository that also grants merge bypass
 to a maintainer, and it would present self-review as independent validation.
-Record which revision the patrol authored so a later run does not treat the
-missing review as an oversight it can satisfy.
+Record which revision the patrol authored. The patrol still reviews that
+revision and publishes its findings as a comment review in the same run; only
+the approval state is left to someone else.
 
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
@@ -590,7 +630,9 @@ Write a concise, actionable Chinese report that includes:
 For each important item, state the repository, item type, classification,
 current status, action taken, next step, and blocking party. Label any item that
 was discovered but not handled as `发现但未处理` and explain why. Never present
-discovery as completed work.
+discovery as completed work. List every open pull request with the link to the
+published patrol review of its current head; a pull request without one is a
+failure of the run, never a tracked or held item.
 
 Update local automation memory with the minimum deduplication and follow-up
 state plus the run summary. Do not commit or publish the memory.
