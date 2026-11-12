@@ -29,6 +29,8 @@ Operator, 2026-11-12, verbatim:
 
 > “可以改标签; 除了合并代码, 或者对代码库主分支有实际影响的, 啥都可以做, 这样合理吗? 必须自动的做? 怎样安全并且合理”
 
+> “fork PR 批准前先看 diff??? 啥意思?  如果PR作者超过2周没有响应你可以帮助他把代码实现; ci 这种安全的情况下必须帮忙跑 CI,ci 挂了作者不回复你也可以帮忙修; 我们主线上 CI 挂了也要修.”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
@@ -54,6 +56,27 @@ differently, this section applies.
   or apply the label. When the report lacks something only the reporter has,
   publish the specific question and work the item again every run until one of
   the two outcomes holds.
+- Run CI for every pull request whose workflow runs wait for approval
+  (`action_required`, usual for forks and first-time contributors). Approving
+  the run is mandatory whenever it is safe, and the patrol decides that itself:
+  safe means the changed workflows, scripts, build files and tests that the
+  runner executes do nothing beyond building and testing the project (no
+  network use outside the build's dependencies, no reads of secrets or files
+  outside the checkout, nothing left running on the runner). Self-hosted
+  runners, such as the bpftime GPU runners, deserve the closest read because the
+  code runs on a machine the project owns. When a run is unsafe, publish why on
+  the pull request.
+- When a pull request's CI fails, publish the diagnosis; when the author has not
+  answered it, fix the failure with a forward-only commit on the PR branch when
+  it is writable, otherwise in a follow-up pull request.
+- When a pull request's author has not responded for more than two weeks,
+  implement what the pull request still needs (review findings, missing code,
+  tests, conflicts) the same way, keeping the author's commits and crediting
+  them in a replacement pull request.
+- A failing check on a default branch is a bug the patrol fixes: diagnose it
+  from its own job log and open a fix pull request in the same run. A runner or
+  hardware fault outside the patrol's reach gets a tracking issue that names
+  the machine, the evidence and what has to happen on it.
 - Inside this patrol, `oss-issue-triage` supplies classification only; its
   read-only and draft-only defaults do not apply.
 - Review every open pull request in scope and publish the review on GitHub in
@@ -465,12 +488,12 @@ If review finds a concrete execution risk or the existing credential cannot
 approve, record the exact finding or API failure and required external action.
 
 A run on a self-hosted runner (labels such as `self-hosted` or `gpu`) executes
-the fork's code on a machine the organization owns. Before approving one, read
-every changed workflow, script, build file and test it runs, and approve only
-when nothing in them reaches beyond the build: no network calls outside the
-build's dependencies, no reads of credentials or files outside the checkout, no
-persistence on the runner. Otherwise publish the finding on the pull request
-and leave that approval to a maintainer.
+the fork's code on a machine the organization owns. Read every changed
+workflow, script, build file and test it runs, and approve it in the same run
+as soon as nothing in them reaches beyond the build: no network calls outside
+the build's dependencies, no reads of credentials or files outside the
+checkout, no persistence on the runner. When something does, publish the
+finding on the pull request and leave that one run unapproved.
 
 After approval, verify that execution actually starts and follow the checks to
 a terminal result. Diagnose failures; rerun a verified transient failure once,
