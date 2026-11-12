@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness and autonomously merge eligible PRs in repositories with fewer than 500 stars, while reserving higher-star repository merges for the user.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness, while leaving every merge and every change to a default branch to a maintainer.
 ---
 
 # Eunomia Community Patrol
@@ -27,10 +27,21 @@ Operator, 2026-11-12, verbatim:
 
 > “是不是也要说 user 报告的 bug 也需要开 PR? 另外全社区也要扫描? 要自行作为维护者去做所有权限范围内能做的事情, 包括也要检查是不是有人 report 了 bug 之类的, 你没打 false positive 的 tag 也没 开 PR 的情况.”
 
+> “可以改标签; 除了合并代码, 或者对代码库主分支有实际影响的, 啥都可以做, 这样合理吗? 必须自动的做? 怎样安全并且合理”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
 
+- The boundary is the merge. Everything below **Authorized Writes** happens
+  automatically, without asking, because none of it reaches a default branch:
+  a pull request still needs a maintainer to merge it, and comments, labels and
+  branch pushes stay reviewable or reversible. The patrol never merges, never
+  submits an approving review (an approval from the posting account reads as
+  the maintainer's own sign-off and is the last gate before a merge), never
+  writes to a default or release branch, tag, release or package, never
+  force-pushes or rewrites history, and never closes another author's issue or
+  pull request; a `false positive` label marks a non-bug instead.
 - Act as the maintainer of every public `eunomia-bpf` repository and do
   everything the authorized writes allow. Every run scans the whole
   community: every open issue and pull request in every in-scope repository,
@@ -57,16 +68,15 @@ differently, this section applies.
   memory or reports, and never record an item as held. An item that an older
   memory lists as held is reviewed and published in this run, then tracked like
   any other item.
-- Where GitHub forbids an approval (the head belongs to the posting account, or
-  the patrol pushed to it), publish the same review as a comment review.
-  Withholding the approval state never withholds the review.
+- Publish each review once, as a pull request review in the comment or
+  request-changes state.
 - When a review or any patrol step finds a bug, write the fix in the same run:
   push a focused commit with a regression test to the pull request branch when
   it is writable, otherwise open a pull request, and publish what changed.
 - A head that already carries a published patrol review needs no duplicate; a
   new head gets a new review.
-- Merging is optional and may wait for a maintainer. A review, a fix and their
-  publication never wait.
+- Merging belongs to a maintainer. A review, a fix and their publication never
+  wait for it.
 
 ## Scope and Schedule
 
@@ -376,9 +386,9 @@ GitHub or commit it.
   choices, acceptance or rejection, merge or closure decisions, and ownership
   or milestone choices.
   Routine bug fixes, contributor-PR repairs, workflow-run approvals and
-  evidence-backed code reviews are already authorized below. Merge authority
-  follows the live-star threshold below; product and API decisions remain
-  separate from routine maintenance.
+  evidence-backed code reviews are already authorized below. Merging belongs
+  to maintainers; product and API decisions remain separate from routine
+  maintenance.
 - For a decision-blocked item, summarize the evidence, viable options, and
   tradeoffs; state exactly what remains to be decided; mark the responsible
   user or maintainer as the blocker; and continue tracking without repetitive
@@ -420,29 +430,18 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - proactively repair other contributors' pull requests, push focused fixes to
   their exact writable PR branch, and respond to or resolve addressed review
   threads after verifying the changes;
-- submit evidence-backed PR reviews, including approval when review and
-  relevant validation support it; PR approval alone does not satisfy the merge
-  gates below;
-- merge an eligible PR in a target repository with fewer than 500 live GitHub
-  stars after all of the merge gates below pass;
+- submit evidence-backed PR reviews in the comment or request-changes state;
+- request reviewers on pull requests, and open issues that track a confirmed
+  bug, a failing default-branch check or a runner fault;
 - add and remove labels on issues and pull requests, including `false
   positive`, which the patrol creates in a repository that lacks it;
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
-Submit an approval as the reviewer only when the approval is genuinely
-independent of the work under review. If the patrol pushed one or more commits
-to the pull request, including a repair to a contributor branch or a PR the task
-created, it is a partial author of that revision, so its approval cannot serve as
-the repository's required independent review of that head. In that case, state
-that the head still needs an approving review from someone else rather than
-self-approving; the contributors whose branches were repaired should receive the
-approval from the maintainer or another reviewer. Approving a head the patrol
-authored adds no unblocking value at a repository that also grants merge bypass
-to a maintainer, and it would present self-review as independent validation.
-Record which revision the patrol authored. The patrol still reviews that
-revision and publishes its findings as a comment review in the same run; only
-the approval state is left to someone else.
+The patrol never submits an approving review; the approval and the merge stay
+with a maintainer. Record which revision the patrol authored. The patrol still
+reviews that revision and publishes its findings as a comment review in the
+same run, and states that the head needs a maintainer's approval.
 
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
@@ -464,6 +463,14 @@ for that fork PR run. This authorizes CI execution, not PR approval or merge,
 repository permission changes, or deployment/release environment approvals.
 If review finds a concrete execution risk or the existing credential cannot
 approve, record the exact finding or API failure and required external action.
+
+A run on a self-hosted runner (labels such as `self-hosted` or `gpu`) executes
+the fork's code on a machine the organization owns. Before approving one, read
+every changed workflow, script, build file and test it runs, and approve only
+when nothing in them reaches beyond the build: no network calls outside the
+build's dependencies, no reads of credentials or files outside the checkout, no
+persistence on the runner. Otherwise publish the finding on the pull request
+and leave that approval to a maintainer.
 
 After approval, verify that execution actually starts and follow the checks to
 a terminal result. Diagnose failures; rerun a verified transient failure once,
@@ -554,42 +561,28 @@ and no release or artifact appeared. Publish a release only when the user asked
 for it.
 
 When appropriate tests and reviews pass, recheck the current head, mergeability,
-required checks and outstanding review threads, then apply the live-star merge
-policy below. Keep watching for later pushes and regressions. A concrete lack
+required checks and outstanding review threads, then report the pull request
+as ready for a maintainer to merge. Keep watching for later pushes and regressions. A concrete lack
 of access, evidence, required hardware, or an unresolved product/API decision
 must name the missing input; merely belonging to another author is not a
 blocker. Preserve scope and avoid architecture or public-semantics changes
 unrelated to the reported bug or contribution.
 
-### Merge authority by live repository stars
+### Merging belongs to maintainers
 
-Immediately before a merge, query the target repository's current GitHub
-`stargazers_count`; do not use the fork's stars or a cached inventory count.
-At 500 or more stars, leave the final merge to the user and report readiness.
-Below 500 stars, the Workspace agent may perform the merge without per-PR
-confirmation only after all of these conditions hold:
-
-- The PR is open, not a draft, and has no merge conflict.
-- The latest head has completed the repository-required review process and
-  relevant tests; required checks are successful and no applicable Copilot or
-  reviewer finding, correctness issue or security blocker remains unresolved.
-- Any intended product/API decision is already settled; low stars do not
-  authorize unrelated behavior changes.
-- Refresh the PR head, check/review state and star count at the point of merge,
-  and bind the merge request to that reviewed head (for example with
-  `gh pr merge --match-head-commit`). If the head changed, revalidate it first.
+The patrol never merges, enables auto-merge or enqueues a pull request, in any
+repository and at any star count. Report a pull request as ready for a
+maintainer when it is open, not a draft and free of conflicts, its current head
+carries the patrol's published review, required checks pass, and no Copilot or
+reviewer finding, correctness issue or security blocker remains unresolved.
 
 A pull request reporting a mergeable state of blocked with no review decision is
 usually waiting on a required approving review, not on a failing check. Read the
 default branch's protection settings to see what it actually requires: the
 number of required approving reviews and the list of required status checks are
 separate, and a repository can require a review while requiring no checks at
-all. When an approval is what is missing and review plus relevant validation
-support it, submitting the evidence-backed approval is an authorized action that
-unblocks the item; do not report a required review as an external blocker when
-the patrol can satisfy it. Note that this applies to merge eligibility under the
-gate above, not to repositories at or above the star threshold, where the final
-merge still belongs to the user.
+all. Report the missing approval as the maintainer's step; request a reviewer
+when none is assigned.
 
 A review approval is attached to the commit it was submitted against, so a
 later push leaves that approval pointing at a superseded head. When reporting an
@@ -599,16 +592,7 @@ green check set may still have no review covering the revision that would merge.
 Say which revision the approval covers when it is not the head, and treat the
 item as awaiting re-review rather than as ready.
 
-Use a repository-supported merge method without bypassing branch protection.
-If the star count or required evidence is unavailable, preserve the item for
-follow-up rather than guessing. Use the agent's immediate merge after these
-gates; do not enable deferred GitHub auto-merge or enqueue it in a merge queue,
-where the head or star count could change after the authorization check.
-Verify the resulting merged state and record its commit and PR link. Never
-delete the contributor branch as part of this action.
-
-This replaces both the earlier all-manual-merge rule and the old named
-ActPlane/wasm-bpf exceptions: every in-scope repository uses the same threshold.
+This replaces the earlier live-star merge threshold (operator 2026-11-12).
 All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Name Branches, Commits, and Pull Requests Neutrally
@@ -624,14 +608,16 @@ All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Never Perform These Actions
 
-- Merge a PR whose target repository has 500 or more stars, or merge without
-  satisfying the live-star policy above. Never enable deferred auto-merge or
-  enqueue a PR in a merge queue.
-- Publish a release.
-- Close an issue or pull request.
+- Merge a pull request, enable auto-merge, enqueue one in a merge queue, or
+  submit an approving review.
+- Commit or push to a default or release branch, push a tag, publish a release
+  or a package. The one exception is the patrol's own control files in the
+  eunomia.dev repository (`.agents/` and the agent-skills pointer).
+- Force-push or rewrite history on any branch.
+- Close another author's issue or pull request; label it instead.
 - Delete a branch.
 - Change access permissions, organization or repository settings, branch
-  protection, secrets, webhooks, or deployment configuration.
+  protection, secrets, webhooks, runners, or deployment configuration.
 - Write outside `eunomia-bpf` except for focused commits to the exact writable
   contributor PR branch allowed above.
 - Expose credentials, tokens, private logs, or sensitive environment details in
