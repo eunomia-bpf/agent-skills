@@ -25,10 +25,26 @@ Operator, 2026-11-12, verbatim:
 
 > “禁止 hold-queue”
 
+> “是不是也要说 user 报告的 bug 也需要开 PR? 另外全社区也要扫描? 要自行作为维护者去做所有权限范围内能做的事情, 包括也要检查是不是有人 report 了 bug 之类的, 你没打 false positive 的 tag 也没 开 PR 的情况.”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
 
+- Act as the maintainer of every public `eunomia-bpf` repository and do
+  everything the authorized writes allow. Every run scans the whole
+  community: every open issue and pull request in every in-scope repository,
+  bpftime included but never alone.
+- Every bug reported in an issue, by a user or anyone else, ends with one of
+  two outcomes: a fix pull request opened by the patrol and linked from the
+  issue, or a `false positive` label on the issue with the evidence published
+  in a comment. Each run lists the reported bugs that have neither and works
+  every one of them: reproduce it or trace it in the code, then open the fix PR
+  or apply the label. When the report lacks something only the reporter has,
+  publish the specific question and work the item again every run until one of
+  the two outcomes holds.
+- Inside this patrol, `oss-issue-triage` supplies classification only; its
+  read-only and draft-only defaults do not apply.
 - Review every open pull request in scope and publish the review on GitHub in
   the run that first sees its current head. Pull requests opened from the
   account the patrol posts as (`yunwei37`), by the user, by another agent or
@@ -409,6 +425,8 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
   gates below;
 - merge an eligible PR in a target repository with fewer than 500 live GitHub
   stars after all of the merge gates below pass;
+- add and remove labels on issues and pull requests, including `false
+  positive`, which the patrol creates in a repository that lacks it;
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
@@ -428,7 +446,7 @@ the approval state is left to someone else.
 
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
-changing labels, assignees, or milestones.
+changing assignees or milestones.
 
 ### GitHub Actions approval and CI follow-up
 
