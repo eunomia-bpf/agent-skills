@@ -557,6 +557,14 @@ in the control checkout or another repository do not block work in a clean
 matching Workspace; preserve them and restrict every status, edit, stage and
 commit operation to the intended repository and paths.
 
+Build trees live outside the Workspace volume, on the node's own disk, which
+other projects' Workspaces share. On 2026-11-12 one build tree per pull request
+under `/tmp` reached about 440 GB, filled g485 and got the patrol evicted
+mid-run. Keep one build tree per repository at `/tmp/patrol-build/<repo>`,
+reuse it across pull requests by switching the checkout and rebuilding, delete
+it when the run ends, and check `df /` before each configure: below 25% free,
+delete the other build trees first.
+
 A missing build or test toolchain is a reachable-work problem, not a blocker.
 Before deferring a dependency or build change to a maintainer, check whether the
 toolchain can be installed into the workspace: a Go module bump needs only the
