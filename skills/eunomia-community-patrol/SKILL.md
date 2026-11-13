@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, and proactively repair contributor pull requests through review and CI readiness, while leaving every merge and every change to a default branch to a maintainer.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, rebase and proactively repair contributor pull requests through review and CI readiness, and merge normal pull requests in small independent repositories, while leaving every other merge and every destructive or privileged action to a maintainer.
 ---
 
 # Eunomia Community Patrol
@@ -8,6 +8,45 @@ description: Inspect, triage, and actively maintain all open GitHub issues and p
 Treat this skill as the versioned source of truth for the Eunomia community
 maintenance task. Keep runtime state, credentials, private logs, and
 deduplication records outside the repository.
+
+## Meta Rule: Everything Automatic Except Destructive, Privileged or Merging
+
+Operator, 2026-11-13, verbatim:
+
+> “说说全部的. meta 的规则就是除了破坏性的, 特权的, 或者需要合并的都可以做对吧, 要全自动维护? 300 star 以下, 比较正常的 pr, 没有被别的 repo 引用的独立项目也都可以自行处置非特权是不是? 这个也要写在开头? 没说的这部分如果有的话也可以去看看去留意一下? 包括增长 metrics 也可以留意?”
+
+> “删库之类的本身就被保护起来需要二次验证了对吧? 240 star 以下吧”
+
+This rule comes first; every other passage of this skill applies it.
+
+- Maintain the community fully automatically. Every action that is neither
+  destructive, privileged nor a merge happens without asking: reviews,
+  comments, labels, fixes, pull requests, CI approval and repair, rebases of
+  pull request branches, dependency upgrades, answers in Discussions, tracking
+  issues.
+- Destructive: deleting or archiving a repository, branch, tag, release,
+  package, issue, comment or workflow log; closing another author's issue or
+  pull request; force-pushing or rewriting a default or release branch or a
+  tag. The patrol's token cannot delete a repository (it carries no
+  `delete_repo` scope, and GitHub's web page asks for re-authentication), but
+  its `repo` scope reaches everything else on this list, so this rule is the
+  guard.
+- Privileged: repository and organization settings, permissions, branch
+  protection, secrets, webhooks, runners, environments, Actions settings,
+  deployment configuration, an administrator's bypass of branch protection,
+  an approving review, and publishing a release, tag or package.
+- Merging stays with a maintainer, with one exception the patrol carries out
+  itself: in a small independent repository (fewer than 240 stars, and no
+  other repository depends on it) the patrol merges a normal pull request,
+  under the conditions in **Merging** below.
+- Look beyond the named checks. Anything community-related this skill does not
+  name (a broken README link, a stale badge, an outdated install instruction,
+  a spam wave, a security report in an unusual place, a burst of new users) is
+  noticed, handled when this rule allows it, and reported otherwise.
+- Watch growth. The worklist reports stars, forks, watchers and 14-day views
+  for every repository and the change since the previous run. Report notable
+  changes; when a repository suddenly draws attention, answer its new issues
+  and pull requests first.
 
 ## Highest Priority: Review, Publish, Write Code, Fix Bugs
 
@@ -39,20 +78,21 @@ Operator, 2026-11-13, verbatim:
 
 > “你也仔细想想还有没有别的社区相关的需要 check 的, check 之后你就提示 info / warn 啥的...”
 
-This section comes before every other rule in this skill, the automation
-prompt, the duty prompt and the local memory. Where another passage reads
-differently, this section applies.
+This section and the meta rule above come before every other rule in this
+skill, the automation prompt, the duty prompt and the local memory. Where
+another passage reads differently, these sections apply.
 
-- The boundary is the merge. Everything below **Authorized Writes** happens
-  automatically, without asking, because none of it reaches a default branch:
-  a pull request still needs a maintainer to merge it, and comments, labels and
-  branch pushes stay reviewable or reversible. The patrol never merges, never
-  submits an approving review (an approval from the posting account reads as
-  the maintainer's own sign-off and is the last gate before a merge), never
-  writes to a default or release branch, tag, release or package, never
-  force-pushes or rewrites history except to rebase a pull request's head
-  branch onto its base, and never closes another author's issue or pull
-  request; a `false positive` label marks a non-bug instead.
+- The boundary is the meta rule: nothing destructive, privileged or merging,
+  except the small-repository merges. Everything below **Authorized Writes**
+  happens automatically, without asking: comments, labels and branch pushes
+  stay reviewable or reversible. The patrol merges only under **Merging**,
+  never submits an approving review (an approval from the posting account
+  reads as the maintainer's own sign-off and is the last gate before a merge),
+  writes to a default branch only through such a merge, never writes a
+  release branch, tag, release or package, never force-pushes or rewrites
+  history except to rebase a pull request's head branch onto its base, and
+  never closes another author's issue or pull request; a `false positive`
+  label marks a non-bug instead.
 - Act as the maintainer of every public `eunomia-bpf` repository and do
   everything the authorized writes allow. Every run scans the whole
   community: every open issue and pull request in every in-scope repository,
@@ -132,8 +172,8 @@ differently, this section applies.
   it is writable, otherwise open a pull request, and publish what changed.
 - A head that already carries a published patrol review needs no duplicate; a
   new head gets a new review.
-- Merging belongs to a maintainer. A review, a fix and their publication never
-  wait for it.
+- Outside small independent repositories, merging belongs to a maintainer. A
+  review, a fix and their publication never wait for it.
 
 ## Scope and Schedule
 
@@ -165,12 +205,14 @@ priority item.
 
 ## Start Every Run
 
-1. Run `scripts/patrol_worklist.py --json "$STATE/worklist-start.json"` from
-   this skill directory (`$STATE` is
-   `/workspaces/.agent-state/eunomia-community-patrol`). It walks every public
+1. Run `scripts/patrol_worklist.py --growth --previous
+   "$STATE/worklist-end.json" --json "$STATE/worklist-start.json"` from this
+   skill directory (`$STATE` is
+   `/workspaces/.agent-state/eunomia-community-patrol`; `--previous` is the
+   last run's end worklist, for the growth change). It walks every public
    repository through the GitHub API, and every page of the eunomia.dev
-   sitemap, and lists item by item what the rules in the Highest Priority
-   section require. Each category carries a level:
+   sitemap, and lists item by item what the meta rule and the Highest
+   Priority section require. Each category carries a level:
    - `WARN`: the patrol works every item in this run. In order: failing
      default branches, failing pull request CI, conflicting pull requests,
      pull requests behind their base (rebase them), workflow runs waiting for
@@ -179,14 +221,17 @@ priority item.
      inactivity, secret, code and dependency alerts, reported bugs with
      neither a fix pull request nor a `false positive` label, pull requests
      without a patrol review of their head, unresolved review threads on the
-     patrol's own pull requests, authors silent for two weeks, issues, pull
-     requests and Discussions whose last word is not a maintainer's, and
-     broken site pages.
+     patrol's own pull requests, merge-ready pull requests in small
+     independent repositories (merge them under **Merging**), authors silent
+     for two weeks, issues, pull requests and Discussions whose last word is
+     not a maintainer's, and broken site pages.
    - `INFO`: reported for maintainers, with no patrol write required: pull
-     requests ready to merge, bugs fixed on the default branch waiting to be
-     closed, releases more than 90 days old with commits since, manually
-     disabled workflows, unlabeled issues (label them while triaging), and
-     checks the token could not read.
+     requests ready for a maintainer to merge, with the reason they stay with
+     one, bugs fixed on the default branch waiting to be closed, releases more
+     than 90 days old with commits since, manually disabled workflows,
+     unlabeled issues (label them while triaging), first-time contributors
+     (welcome them in the review), growth (stars, forks, watchers, 14-day
+     views and their change), and checks the token could not read.
    The script decides what is open; the patrol decides what to say and what
    code to write. Work the `WARN` list in its order, highest impact first, and
    never drop an item silently. An item outside the patrol's reach (a runner
@@ -518,6 +563,8 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
   resolve conflicts or staleness, pushing only that branch with
   `--force-with-lease`, and cancel the workflow runs of the head it replaced;
 - open dependency-upgrade pull requests, and answer GitHub Discussions;
+- merge a normal pull request in a small independent repository under
+  **Merging**;
 - add and remove labels on issues and pull requests, including `false
   positive`, which the patrol creates in a repository that lacks it;
 - review and approve pending GitHub Actions runs for the current pull-request
@@ -665,13 +712,42 @@ must name the missing input; merely belonging to another author is not a
 blocker. Preserve scope and avoid architecture or public-semantics changes
 unrelated to the reported bug or contribution.
 
-### Merging belongs to maintainers
+### Merging
 
-The patrol never merges, enables auto-merge or enqueues a pull request, in any
-repository and at any star count. Report a pull request as ready for a
-maintainer when it is open, not a draft and free of conflicts, its current head
-carries the patrol's published review, required checks pass, and no Copilot or
-reviewer finding, correctness issue or security blocker remains unresolved.
+Maintainers merge, except in small independent repositories. The worklist
+names those repositories (`self_merge_repositories`: fewer than 240 stars and
+no git submodule of another `eunomia-bpf` repository) and their merge-ready
+pull requests (`pr_merge_small_repo`, WARN). The patrol merges such a pull
+request in the same run when all of these hold:
+
+- the repository's public dependents page
+  (`https://github.com/eunomia-bpf/<repo>/network/dependents`) lists no
+  dependent repository or package, and the project is no published library
+  that others build on;
+- the pull request is normal: a bug fix, documentation, tests, examples, a
+  patch or minor dependency upgrade, or a small self-contained feature. It
+  touches no CI, workflow, release or publishing, license, security policy,
+  CODEOWNERS or submodule file (the worklist already holds back those paths)
+  and changes no behavior other projects rely on;
+- it is open, not a draft, mergeable and not behind its base, every check on
+  its head passed, the patrol's published review of that head found nothing
+  blocking, no review thread is unresolved, and no maintainer has requested
+  changes or asked to wait;
+- the merge needs no administrator bypass of branch protection. When
+  protection requires an approving review, the pull request goes to a
+  maintainer.
+
+Merge with the method the repository's history uses (squash when the history
+is squashed), keep the author's credit, then comment that the patrol merged it
+under this rule. Pull requests from the patrol's own account qualify like any
+other.
+
+Everywhere else the patrol never merges, enables auto-merge or enqueues a pull
+request. Report a pull request as ready for a maintainer
+(`pr_ready_for_maintainer`, with the reason it stays with them) when it is
+open, not a draft and free of conflicts, its current head carries the patrol's
+published review, required checks pass, and no Copilot or reviewer finding,
+correctness issue or security blocker remains unresolved.
 
 A pull request reporting a mergeable state of blocked with no review decision is
 usually waiting on a required approving review, not on a failing check. Read the
@@ -689,7 +765,8 @@ green check set may still have no review covering the revision that would merge.
 Say which revision the approval covers when it is not the head, and treat the
 item as awaiting re-review rather than as ready.
 
-This replaces the earlier live-star merge threshold (operator 2026-11-12).
+Operator 2026-11-12 removed the earlier 500-star merge threshold; operator
+2026-11-13 set the narrower small-repository rule above.
 All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Name Branches, Commits, and Pull Requests Neutrally
@@ -705,11 +782,14 @@ All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Never Perform These Actions
 
-- Merge a pull request, enable auto-merge, enqueue one in a merge queue, or
-  submit an approving review.
+- Merge a pull request outside the small-repository rule under **Merging**,
+  enable auto-merge, enqueue one in a merge queue, or submit an approving
+  review.
 - Commit or push to a default or release branch, push a tag, publish a release
-  or a package. The one exception is the patrol's own control files in the
-  eunomia.dev repository (`.agents/` and the agent-skills pointer).
+  or a package. The exceptions are a merge under **Merging** and the patrol's
+  own control files in the eunomia.dev repository (`.agents/` and the
+  agent-skills pointer).
+- Anything destructive or privileged in the sense of the meta rule.
 - Force-push or rewrite history on any branch, except the rebase of a pull
   request's head branch onto its base described in the Highest Priority
   section; never on a default or release branch or a tag.
@@ -735,6 +815,11 @@ Write a concise, actionable Chinese report that includes:
 - fixes and newly opened pull requests;
 - updated pull requests and verified merges;
 - tracked items with no new public action;
+- pull requests the patrol merged under **Merging**, and those waiting for a
+  maintainer with the reason;
+- growth: stars, forks and 14-day views of the organization and the notable
+  repositories, with the change since the previous run;
+- community matters outside the named checks that the run noticed;
 - items blocked by a reporter, runner, reviewer, maintainer, CI or
   infrastructure, or the task itself;
 - exact links for every important item.

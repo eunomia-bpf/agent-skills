@@ -12,19 +12,27 @@ WARN  the patrol works every item in this run: failing default branches and
       inactivity, secret, code and dependency alerts, reported bugs with
       neither a fix pull request nor a `false positive` label, pull requests
       without a patrol review of their head, unresolved review threads on the
-      patrol's own pull requests, authors silent for two weeks, issues, pull
-      requests and Discussions whose last word is not a maintainer's, and
-      broken site pages.
-INFO  reported for maintainers: pull requests ready to merge, bugs fixed on
-      the default branch waiting to be closed, releases far behind the
-      default branch, manually disabled workflows, unlabeled issues, and the
-      checks the token could not read.
+      patrol's own pull requests, ready pull requests in small independent
+      repositories (the patrol merges them), authors silent for two weeks,
+      issues, pull requests and Discussions whose last word is not a
+      maintainer's, and broken site pages.
+INFO  reported for maintainers: pull requests ready to merge elsewhere, bugs
+      fixed on the default branch waiting to be closed, releases far behind
+      the default branch, manually disabled workflows, unlabeled issues,
+      first-time contributors, growth metrics, and the checks the token could
+      not read.
+
+A small independent repository has fewer than 240 stars and is no git
+submodule of another repository in the organization; a ready pull request
+there that touches no CI, release, license, security or submodule file is
+listed for the patrol to merge.
 
 The script only reads. The patrol works the items and runs it again at the end
 of the run; the difference between the two outputs is the run's result.
 
 Usage: patrol_worklist.py [--org eunomia-bpf] [--patrol yunwei37]
                           [--site SITEMAP_URL | --no-site]
+                          [--growth] [--previous earlier.json]
                           [--json out.json] [--markdown]
 """
 import argparse
@@ -42,6 +50,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 MAINTAINER = {"OWNER", "MEMBER", "COLLABORATOR"}
+FIRST_TIMER = {"FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER"}
 RESOLVED_LABELS = {"false positive"}
 FIXED_LABELS = {"fixed-on-master"}
 BUG_LABEL = re.compile(r"bug|crash|regression|defect", re.I)
@@ -53,6 +62,17 @@ BUG_WORDS = re.compile(
 FAILING = {"FAILURE", "ERROR"}
 QUEUED_STALE = dt.timedelta(hours=6)
 RELEASE_STALE = dt.timedelta(days=90)
+SELF_MERGE_STARS = 240
+# Files whose change keeps a pull request with a maintainer.
+SENSITIVE = re.compile(
+    r"(^|/)(\.github/|\.gitmodules$"
+    r"|(LICEN[CS]E|COPYING|SECURITY|CODEOWNERS)(\.[A-Za-z]+)?$)", re.I)
+# gh failures worth another try: network drops and GitHub's rate pushback.
+TRANSIENT = re.compile(r"timeout|TLS handshake|connection reset|EOF|HTTP 50[234]"
+                       r"|error connecting|dial tcp|connectex|connection refused"
+                       r"|no such host|secondary rate limit|submitted too quickly", re.I)
+SUBMODULE_URL = re.compile(
+    r"^\s*url\s*=\s*\S*github\.com[:/]+([^/\s]+)/([^/\s]+?)(?:\.git)?/?\s*$", re.M)
 SITEMAP = "https://eunomia.dev/sitemap.xml"
 USER_AGENT = "eunomia-community-patrol"
 
@@ -72,6 +92,7 @@ CATEGORIES = [
     ("bug_unresolved", "WARN"),
     ("pr_needs_review", "WARN"),
     ("pr_threads_awaiting_patrol", "WARN"),
+    ("pr_merge_small_repo", "WARN"),
     ("pr_author_silent_14d", "WARN"),
     ("pr_awaiting_reply", "WARN"),
     ("issue_awaiting_reply", "WARN"),
@@ -82,17 +103,22 @@ CATEGORIES = [
     ("release_pending", "INFO"),
     ("workflows_disabled_manually", "INFO"),
     ("issue_unlabeled", "INFO"),
+    ("pr_first_time_contributor", "INFO"),
 ]
 
 
 def run_gh(args, allow_fail):
-    proc = subprocess.run(["gh"] + args, capture_output=True, text=True,
-                          encoding="utf-8")
-    if proc.returncode != 0:
+    for attempt in range(5):
+        proc = subprocess.run(["gh"] + args, capture_output=True, text=True,
+                              encoding="utf-8")
+        if proc.returncode == 0:
+            return proc.stdout
+        if attempt < 4 and TRANSIENT.search(proc.stderr):
+            time.sleep(2 ** (attempt + 1))
+            continue
         if allow_fail:
             return None
         raise RuntimeError(f"gh {' '.join(args[:3])}: {proc.stderr.strip()[:300]}")
-    return proc.stdout
 
 
 def gh(args, allow_fail=False):
@@ -127,7 +153,9 @@ query($org: String!, $after: String) {
     repositories(first: 100, after: $after, privacy: PUBLIC, isFork: false) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        name isArchived hasDiscussionsEnabled stargazerCount
+        name isArchived hasDiscussionsEnabled stargazerCount forkCount
+        watchers { totalCount }
+        gitmodules: object(expression: "HEAD:.gitmodules") { ... on Blob { text } }
         latestRelease { tagName publishedAt url }
         defaultBranchRef { name target { ... on Commit {
           oid committedDate statusCheckRollup { state } } } }
@@ -143,9 +171,10 @@ query($org: String!, $repo: String!, $after: String) {
       pageInfo { hasNextPage endCursor }
       nodes {
         number title url isDraft mergeable createdAt updatedAt
-        author { login }
+        author { login } authorAssociation
         baseRefName headRefOid isCrossRepository maintainerCanModify
         headRepository { nameWithOwner }
+        changedFiles files(first: 100) { nodes { path } }
         reviews(last: 40) { nodes { author { login } state commit { oid } } }
         reviewThreads(last: 30) { nodes { isResolved
           comments(last: 1) { nodes { author { login } } } } }
@@ -228,12 +257,33 @@ def compare(org, repo, base, head, field):
     return None if data is None else data["n"]
 
 
-def scan_repo(org, repo, patrol, now):
+def merge_blocks(org, repos):
+    """Why each repository's pull requests stay with a maintainer, or None
+    for a small independent repository whose normal pull requests the patrol
+    merges itself."""
+    users = {}
+    for r in repos:
+        text = (r.get("gitmodules") or {}).get("text") or ""
+        for owner, name in SUBMODULE_URL.findall(text):
+            if owner.lower() == org.lower() and name.lower() != r["name"].lower():
+                users.setdefault(name.lower(), []).append(r["name"])
+    blocks = {}
+    for r in repos:
+        if r["stargazerCount"] >= SELF_MERGE_STARS:
+            blocks[r["name"]] = f"{r['stargazerCount']} stars"
+        elif r["name"].lower() in users:
+            blocks[r["name"]] = "submodule of " + ", ".join(sorted(users[r["name"].lower()]))
+        else:
+            blocks[r["name"]] = None
+    return blocks
+
+
+def scan_repo(org, repo, patrol, now, merge_block, growth):
     """Everything about one repository except the per-PR base comparisons,
     which come back as `pending` for the second, parallel phase."""
     name = repo["name"]
     out = {key: [] for key, _ in CATEGORIES}
-    unavailable, pending = set(), []
+    unavailable, pending, traffic = set(), [], None
     ref = repo.get("defaultBranchRef") or {}
     target = ref.get("target") or {}
     rollup = (target.get("statusCheckRollup") or {}).get("state")
@@ -256,6 +306,8 @@ def scan_repo(org, repo, patrol, now):
             out["pr_needs_review"].append(item)
         if pr["mergeable"] == "CONFLICTING":
             out["pr_conflicting"].append(item)
+        if pr.get("authorAssociation") in FIRST_TIMER:
+            out["pr_first_time_contributor"].append(item)
         commit = (pr["commits"]["nodes"] or [{}])[0].get("commit") or {}
         state = (commit.get("statusCheckRollup") or {}).get("state")
         if state in FAILING:
@@ -278,10 +330,18 @@ def scan_repo(org, repo, patrol, now):
         if author == patrol and waiting:
             out["pr_threads_awaiting_patrol"].append(
                 dict(item, detail=f"{len(waiting)} unresolved threads"))
+        paths = [f["path"] for f in pr["files"]["nodes"]]
+        sensitive = sorted({p for p in paths if SENSITIVE.search(p)})
+        block = merge_block
+        if block is None and sensitive:
+            block = "touches " + ", ".join(sensitive[:3])
+        if block is None and pr["changedFiles"] > len(paths):
+            block = f"{pr['changedFiles']} files"
         pending.append({
             "item": item, "base": pr["baseRefName"], "headsha": pr["headRefOid"],
             "conflicting": pr["mergeable"] == "CONFLICTING",
             "writable": not pr["isCrossRepository"] or pr["maintainerCanModify"],
+            "merge_block": block,
             "ready": (not pr["isDraft"] and pr["mergeable"] == "MERGEABLE"
                       and state == "SUCCESS" and reviewed and not open_threads)})
 
@@ -411,7 +471,14 @@ def scan_repo(org, repo, patrol, now):
                 out["release_pending"].append(
                     {"repo": name, "title": release["tagName"], "url": release["url"],
                      "detail": f"{age.days} days old, {ahead} commits since"})
-    return name, out, unavailable, pending
+
+    if growth:
+        views = gh(["api", f"repos/{org}/{name}/traffic/views"], allow_fail=True)
+        if views is None:
+            unavailable.add("traffic")
+        else:
+            traffic = {"views_14d": views["count"], "uniques_14d": views["uniques"]}
+    return name, out, unavailable, pending, traffic
 
 
 def fetch(url, method="GET", attempts=4):
@@ -467,6 +534,28 @@ def check_site(sitemap):
              "url": u} for u, s in broken], len(urls)
 
 
+def growth_report(repos, traffic, previous):
+    """Stars, forks, watchers and 14-day views per repository, with the
+    change since an earlier worklist when one is given."""
+    before = (previous or {}).get("growth", {}).get("repositories", {})
+    rows = {}
+    for r in repos:
+        row = {"stars": r["stargazerCount"], "forks": r["forkCount"],
+               "watchers": r["watchers"]["totalCount"], **(traffic.get(r["name"]) or {})}
+        old = before.get(r["name"])
+        if old:
+            row["stars_delta"] = row["stars"] - old.get("stars", row["stars"])
+            row["forks_delta"] = row["forks"] - old.get("forks", row["forks"])
+        rows[r["name"]] = row
+    totals = {k: sum(row.get(k, 0) for row in rows.values())
+              for k in ("stars", "forks", "views_14d", "uniques_14d")}
+    if before:
+        totals["stars_delta"] = sum(row.get("stars_delta", 0) for row in rows.values())
+        totals["forks_delta"] = sum(row.get("forks_delta", 0) for row in rows.values())
+    return {"since": (previous or {}).get("generated"), "totals": totals,
+            "repositories": rows}
+
+
 def describe(item):
     ref = item["repo"] + (f"#{item['number']}" if "number" in item else "")
     parts = [ref, item.get("title", ""), item.get("detail", ""), item["url"]]
@@ -479,6 +568,9 @@ def main():
     ap.add_argument("--patrol", default="yunwei37")
     ap.add_argument("--site", default=SITEMAP, help="sitemap whose pages are checked")
     ap.add_argument("--no-site", action="store_true", help="skip the site check")
+    ap.add_argument("--growth", action="store_true",
+                    help="also read 14-day traffic of every repository")
+    ap.add_argument("--previous", help="an earlier --json output, for growth changes")
     ap.add_argument("--json", help="write the full worklist here")
     ap.add_argument("--markdown", action="store_true", help="print every item")
     args = ap.parse_args()
@@ -486,6 +578,10 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     now = dt.datetime.now(dt.timezone.utc)
     started = time.monotonic()
+    previous = None
+    if args.previous and os.path.exists(args.previous):
+        with open(args.previous, encoding="utf-8") as fh:
+            previous = json.load(fh)
 
     repos, after = [], None
     while True:
@@ -494,22 +590,25 @@ def main():
         if not page["pageInfo"]["hasNextPage"]:
             break
         after = page["pageInfo"]["endCursor"]
+    blocks = merge_blocks(args.org, repos)
 
     workers = min(32, (os.cpu_count() or 4) * 4)
     site_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     site_future = None if args.no_site else site_pool.submit(check_site, args.site)
 
-    results, errors, unavailable, pending = {}, {}, {}, []
+    results, errors, unavailable, pending, traffic = {}, {}, {}, [], {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(scan_repo, args.org, r, args.patrol, now): r["name"]
+        futures = {pool.submit(scan_repo, args.org, r, args.patrol, now,
+                               blocks[r["name"]], args.growth): r["name"]
                    for r in repos}
         for fut in concurrent.futures.as_completed(futures):
             try:
-                name, out, missing, prs = fut.result()
+                name, out, missing, prs, views = fut.result()
             except Exception as exc:  # report, never hide, a repository that failed
                 errors[futures[fut]] = str(exc)
                 continue
             results[name] = out
+            traffic[name] = views
             for check in missing:
                 unavailable.setdefault(check, []).append(name)
             pending += [dict(p, repo=name) for p in prs]
@@ -530,7 +629,11 @@ def main():
                 detail=f"{count} commits behind {p['base']}"
                        + ("" if p["writable"] else ", branch not writable")))
         if count == 0 and p["ready"]:
-            out["pr_ready_for_maintainer"].append(p["item"])
+            if p["merge_block"] is None:
+                out["pr_merge_small_repo"].append(p["item"])
+            else:
+                out["pr_ready_for_maintainer"].append(
+                    dict(p["item"], detail=p["merge_block"]))
 
     totals = {key: [] for key, _ in CATEGORIES}
     for out in results.values():
@@ -553,10 +656,13 @@ def main():
     site_pool.shutdown()
 
     levels = dict(CATEGORIES)
+    growth = growth_report(repos, traffic, previous)
     worklist = {"generated": now.isoformat(timespec="seconds"), "org": args.org,
                 "repositories": len(repos), "site_pages": pages,
                 "scan_errors": errors, "levels": levels,
+                "self_merge_repositories": sorted(n for n, b in blocks.items() if b is None),
                 "unavailable": {k: sorted(v) for k, v in sorted(unavailable.items())},
+                "growth": growth,
                 **{k: sorted(v, key=lambda i: (i["repo"], i.get("number", 0),
                                                i.get("title", "")))
                    for k, v in totals.items()}}
@@ -571,6 +677,14 @@ def main():
     warn = sum(len(worklist[k]) for k, level in CATEGORIES if level == "WARN")
     info = sum(len(worklist[k]) for k, level in CATEGORIES if level == "INFO")
     print(f"warn_total: {warn} info_total: {info}")
+    print(f"INFO self_merge_repositories: {len(worklist['self_merge_repositories'])} "
+          f"(under {SELF_MERGE_STARS} stars, no submodule of another repository)")
+    t = growth["totals"]
+    since = f" since {growth['since']}" if growth["since"] else ""
+    change = (f" ({t['stars_delta']:+d} stars, {t['forks_delta']:+d} forks{since})"
+              if "stars_delta" in t else "")
+    views = f", 14-day views {t['views_14d']} by {t['uniques_14d']}" if args.growth else ""
+    print(f"INFO growth: {t['stars']} stars, {t['forks']} forks{views}{change}")
     for check, names in worklist["unavailable"].items():
         print(f"INFO unavailable {check}: {len(names)} repositories")
     if errors:
@@ -581,6 +695,15 @@ def main():
                 print(f"\n## {level} {key}")
                 for item in worklist[key]:
                     print(f"- {level} {describe(item)}")
+        rows = sorted(growth["repositories"].items(),
+                      key=lambda kv: (-kv[1].get("stars_delta", 0),
+                                      -kv[1].get("views_14d", 0), -kv[1]["stars"]))
+        print("\n## INFO growth (top 20)")
+        for name, row in rows[:20]:
+            print(f"- INFO {name} stars {row['stars']}"
+                  + (f" ({row['stars_delta']:+d})" if "stars_delta" in row else "")
+                  + f" forks {row['forks']}"
+                  + (f" views_14d {row['views_14d']}" if "views_14d" in row else ""))
     return 1 if errors else 0
 
 
