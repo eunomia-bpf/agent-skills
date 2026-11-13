@@ -233,8 +233,10 @@ priority item.
    repository through the GitHub API, and every page of the eunomia.dev
    sitemap, and lists item by item what the meta rule and the Highest
    Priority section require. Each category carries a level:
-   - `WARN`: the patrol works every item in this run. In order: failing
-     default branches, failing pull request CI, conflicting pull requests,
+   - `WARN`: the patrol works every item in this run. In order: the
+     operator's latest comments on closed issues and pull requests (an
+     unmarked `yunwei37` comment after a merge or close, often a follow-up
+     request), failing default branches, failing pull request CI, conflicting pull requests,
      pull requests behind their base (rebase them), workflow runs waiting for
      approval, runs queued for over six hours (missing or offline runner
      capacity), offline self-hosted runners, workflows GitHub disabled for

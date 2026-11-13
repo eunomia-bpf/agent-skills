@@ -5,7 +5,8 @@ Walks every public, non-archived, non-fork repository of the organization
 through the GitHub API (gh), and the pages of the eunomia.dev sitemap, and
 lists what needs attention, item by item. Every category has a level:
 
-WARN  the patrol works every item in this run: failing default branches and
+WARN  the patrol works every item in this run: the operator's latest comments
+      on closed issues and pull requests, failing default branches and
       pull request CI, conflicting pull requests and pull requests behind
       their base (rebase them), workflow runs waiting for approval or queued
       for hours, offline self-hosted runners, workflows GitHub disabled for
@@ -84,6 +85,7 @@ USER_AGENT = "eunomia-community-patrol"
 
 # Every category with its level, in the order the patrol works them.
 CATEGORIES = [
+    ("operator_comment_unanswered", "WARN"),
     ("default_branch_failing", "WARN"),
     ("pr_ci_failing", "WARN"),
     ("pr_conflicting", "WARN"),
@@ -226,6 +228,44 @@ query($org: String!, $repo: String!, $after: String) {
     }
   }
 }"""
+
+
+CLOSED_COMMENTED = """
+query($q: String!, $after: String) {
+  search(query: $q, type: ISSUE, first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      ... on Issue { number title url repository { name }
+        lastComment: comments(last: 1) { nodes { author { login } body createdAt } } }
+      ... on PullRequest { number title url repository { name }
+        lastComment: comments(last: 1) { nodes { author { login } body createdAt } } }
+    }
+  }
+}"""
+OPERATOR_WINDOW = dt.timedelta(days=14)
+# Before this moment the patrol's comments carried no mark, so an unmarked
+# comment from the shared account could be either; only later ones count.
+MARK_SINCE = dt.datetime(2026, 11, 13, 7, 20, tzinfo=dt.timezone.utc)
+
+
+def operator_comments_on_closed(org, patrol, now):
+    """Closed issues and pull requests whose latest comment is the operator's
+    (open ones already land in the awaiting-reply lists)."""
+    since = (now - OPERATOR_WINDOW).date().isoformat()
+    query = f"org:{org} commenter:{patrol} is:closed updated:>={since}"
+    items, after = [], None
+    while True:
+        page = graphql(CLOSED_COMMENTED, q=query, after=after)["search"]
+        for node in page["nodes"]:
+            last = ((node.get("lastComment") or {}).get("nodes") or [None])[0]
+            if (last and by_operator(last, patrol)
+                    and parse_time(last["createdAt"]) >= MARK_SINCE):
+                items.append({"repo": node["repository"]["name"], "number": node["number"],
+                              "url": node["url"], "title": node["title"][:90],
+                              "detail": "operator: " + " ".join(last["body"].split())[:120]})
+        if not page["pageInfo"]["hasNextPage"]:
+            return items
+        after = page["pageInfo"]["endCursor"]
 
 
 def paged(query, key, **variables):
@@ -654,6 +694,11 @@ def main():
     for out in results.values():
         for key, value in out.items():
             totals[key].extend(value)
+    try:
+        totals["operator_comment_unanswered"] = operator_comments_on_closed(
+            args.org, args.patrol, now)
+    except Exception as exc:  # report, never hide, a failed search
+        errors["operator_comment_search"] = str(exc)
     org_runners = gh(["api", f"orgs/{args.org}/actions/runners?per_page=100"],
                      allow_fail=True)
     if org_runners is None:
