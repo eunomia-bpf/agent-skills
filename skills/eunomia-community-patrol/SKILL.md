@@ -33,6 +33,12 @@ Operator, 2026-11-12, verbatim:
 
 > “还有没有可以更主动做的? 你现在全部去看看做做”
 
+Operator, 2026-11-13, verbatim:
+
+> “让社区巡检1h一次? 这样要是 CI 挂了立马修, 另外需要rebase 到 main 的也都要检查, 脚本里面就要提示需要处理, 巡检也需要负责 rebase”
+
+> “你也仔细想想还有没有别的社区相关的需要 check 的, check 之后你就提示 info / warn 啥的...”
+
 This section comes before every other rule in this skill, the automation
 prompt, the duty prompt and the local memory. Where another passage reads
 differently, this section applies.
@@ -44,8 +50,9 @@ differently, this section applies.
   submits an approving review (an approval from the posting account reads as
   the maintainer's own sign-off and is the last gate before a merge), never
   writes to a default or release branch, tag, release or package, never
-  force-pushes or rewrites history, and never closes another author's issue or
-  pull request; a `false positive` label marks a non-bug instead.
+  force-pushes or rewrites history except to rebase a pull request's head
+  branch onto its base, and never closes another author's issue or pull
+  request; a `false positive` label marks a non-bug instead.
 - Act as the maintainer of every public `eunomia-bpf` repository and do
   everything the authorized writes allow. Every run scans the whole
   community: every open issue and pull request in every in-scope repository,
@@ -68,9 +75,11 @@ differently, this section applies.
   runners, such as the bpftime GPU runners, deserve the closest read because the
   code runs on a machine the project owns. When a run is unsafe, publish why on
   the pull request.
-- When a pull request's CI fails, publish the diagnosis; when the author has not
-  answered it, fix the failure with a forward-only commit on the PR branch when
-  it is writable, otherwise in a follow-up pull request.
+- When a pull request's CI fails, fix it in the run that first sees the failure:
+  diagnose it from the job log, publish the diagnosis, and push the fix as a
+  forward-only commit on the PR branch when it is writable, otherwise in a
+  follow-up pull request. The patrol runs every hour so that a red check is
+  repaired within the hour.
 - When a pull request's author has not responded for more than two weeks,
   implement what the pull request still needs (review findings, missing code,
   tests, conflicts) the same way, keeping the author's commits and crediting
@@ -79,9 +88,22 @@ differently, this section applies.
   from its own job log and open a fix pull request in the same run. A runner or
   hardware fault outside the patrol's reach gets a tracking issue that names
   the machine, the evidence and what has to happen on it.
-- Bring every conflicting or outdated pull request branch up to date with its
-  base by merging the base into it (never a rebase or force-push), when the
-  branch is writable; otherwise publish the conflict and how to resolve it.
+- The patrol owns rebasing. Every pull request the worklist lists as
+  conflicting (`pr_conflicting`) or behind its base (`pr_behind_base`) is
+  rebased onto its current base in the run that sees it, when the head branch
+  is writable (the patrol's own branches, branches in `eunomia-bpf`, fork
+  branches that allow maintainer edits). Without conflicts, use GitHub's
+  rebase update (`gh pr update-branch <number> --rebase -R eunomia-bpf/<repo>`).
+  With conflicts, rebase in the repository's one clone, resolve them keeping
+  the pull request's intent, build and test, then push only that head branch
+  with `git push --force-with-lease=<branch>:<old head sha>`. Keep every
+  author's commits and authorship; never squash or drop them. Then cancel the
+  queued and running workflow runs of the superseded head, publish what the
+  rebase changed, and review the new head. When the branch is not writable,
+  publish the conflict and the exact commands to resolve it. A Dependabot or
+  Renovate pull request is rebased by its bot: comment `@dependabot rebase`
+  (Renovate: tick its rebase checkbox), because a push from anyone else makes
+  the bot stop maintaining that pull request.
 - For live dependency or security alerts with a patched release, open one
   upgrade pull request per repository and manifest that covers all of them,
   with its build and test evidence, critical and high severity first. A
@@ -128,9 +150,10 @@ differently, this section applies.
   branch of a pull request targeting this organization.
 - Run in the Linux maintenance workspace. Do not redirect the task to Windows
   or PowerShell.
-- The duty runs every six hours (spark-manage `services/agent-duties/duties.yaml`)
-  under a local lock, so runs never overlap. A manual run does not skip the next
-  scheduled one.
+- The duty runs every hour at minute 23 UTC (spark-manage
+  `services/agent-duties/duties.yaml`) under a local lock, so runs never
+  overlap: a trigger that finds a run still working exits as `already_active`.
+  A manual run does not skip the next scheduled one.
 - Each run starts a fresh Agent session. Continuity comes from the worklist,
   GitHub itself and the latest run summaries in the local memory, never from a
   long conversation.
@@ -145,15 +168,31 @@ priority item.
 1. Run `scripts/patrol_worklist.py --json "$STATE/worklist-start.json"` from
    this skill directory (`$STATE` is
    `/workspaces/.agent-state/eunomia-community-patrol`). It walks every public
-   repository through the GitHub API and lists, item by item, what the rules in
-   the Highest Priority section require: pull requests without a patrol review
-   of their head, failing or conflicting pull requests, authors silent for two
-   weeks, waiting workflow runs, reported bugs with neither a fix pull request
-   nor a `false positive` label, issues and Discussions whose last word is not a
-   maintainer's, failing default branches and open dependency alerts. The
-   script decides what is open; the patrol decides what to say and what code
-   to write. Work the list in its order, highest impact first, and never drop
-   an item silently.
+   repository through the GitHub API, and every page of the eunomia.dev
+   sitemap, and lists item by item what the rules in the Highest Priority
+   section require. Each category carries a level:
+   - `WARN`: the patrol works every item in this run. In order: failing
+     default branches, failing pull request CI, conflicting pull requests,
+     pull requests behind their base (rebase them), workflow runs waiting for
+     approval, runs queued for over six hours (missing or offline runner
+     capacity), offline self-hosted runners, workflows GitHub disabled for
+     inactivity, secret, code and dependency alerts, reported bugs with
+     neither a fix pull request nor a `false positive` label, pull requests
+     without a patrol review of their head, unresolved review threads on the
+     patrol's own pull requests, authors silent for two weeks, issues, pull
+     requests and Discussions whose last word is not a maintainer's, and
+     broken site pages.
+   - `INFO`: reported for maintainers, with no patrol write required: pull
+     requests ready to merge, bugs fixed on the default branch waiting to be
+     closed, releases more than 90 days old with commits since, manually
+     disabled workflows, unlabeled issues (label them while triaging), and
+     checks the token could not read.
+   The script decides what is open; the patrol decides what to say and what
+   code to write. Work the `WARN` list in its order, highest impact first, and
+   never drop an item silently. An item outside the patrol's reach (a runner
+   on someone else's machine, a setting only an administrator can change) gets
+   a tracking issue that names the machine or setting, the evidence and what
+   has to happen.
 2. Read the last three run summaries in the local memory, not the whole file.
 3. Read and follow `oss-issue-triage` for issue and pull request
    classification.
@@ -475,8 +514,9 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - submit evidence-backed PR reviews in the comment or request-changes state;
 - request reviewers on pull requests, and open issues that track a confirmed
   bug, a failing default-branch check or a runner fault;
-- merge a pull request's base branch into its writable head branch to resolve
-  conflicts or staleness;
+- rebase a pull request's writable head branch onto its current base to
+  resolve conflicts or staleness, pushing only that branch with
+  `--force-with-lease`, and cancel the workflow runs of the head it replaced;
 - open dependency-upgrade pull requests, and answer GitHub Discussions;
 - add and remove labels on issues and pull requests, including `false
   positive`, which the patrol creates in a repository that lacks it;
@@ -670,7 +710,9 @@ All patrol-authored public reviews and replies retain the disclosure footer.
 - Commit or push to a default or release branch, push a tag, publish a release
   or a package. The one exception is the patrol's own control files in the
   eunomia.dev repository (`.agents/` and the agent-skills pointer).
-- Force-push or rewrite history on any branch.
+- Force-push or rewrite history on any branch, except the rebase of a pull
+  request's head branch onto its base described in the Highest Priority
+  section; never on a default or release branch or a tag.
 - Close another author's issue or pull request; label it instead.
 - Delete a branch.
 - Change access permissions, organization or repository settings, branch
