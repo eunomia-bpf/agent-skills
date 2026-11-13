@@ -23,6 +23,10 @@ Operator, 2026-11-13, verbatim:
 
 > “脚本只作为提示. 脚本出问题之后巡检 agent 可自己做必要的修复或者改进, 但是不改 skills 文本.”
 
+> “其他 agent 也用你的账号发言却不带标记，巡检会把它们当作你的话来回复 没错, 就要回复”
+
+> “不带标记都回复”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -52,6 +56,8 @@ This rule comes first; every other passage of this skill applies it.
 - Every review, review reply and comment the patrol posts ends with the
   standalone line `*AI patrol review*`. A comment from `yunwei37` without that
   mark is the operator's own: read every one and answer what it asks or tells.
+  Other agents that post from the account without the mark are answered the
+  same way.
   Never reply to a comment that carries the mark (or the longer footer used
   before 2026-11-13); that is the patrol's own.
 - The worklist script is a hint, never the authority on what needs doing. When
