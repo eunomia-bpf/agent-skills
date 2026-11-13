@@ -24,11 +24,16 @@ INFO  reported for maintainers: pull requests ready to merge elsewhere, bugs
 
 A small independent repository has fewer than 240 stars and is no git
 submodule of another repository in the organization; a ready pull request
-there that touches no CI, release, license, security or submodule file is
-listed for the patrol to merge.
+there is listed for the patrol to merge once its review finds it normal.
 
-The script only reads. The patrol works the items and runs it again at the end
-of the run; the difference between the two outputs is the run's result.
+The patrol posts from the operator's account and ends its own reviews and
+comments with `*AI patrol review*`; the same account without that mark is the
+operator, whose comments count as waiting for a patrol reply.
+
+The script only reads, and it is a hint: the patrol works the items, finds
+what the list misses, repairs the script when it is wrong, and runs it again
+at the end of the run; the difference between the two outputs is the run's
+result.
 
 Usage: patrol_worklist.py [--org eunomia-bpf] [--patrol yunwei37]
                           [--site SITEMAP_URL | --no-site]
@@ -50,6 +55,11 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 MAINTAINER = {"OWNER", "MEMBER", "COLLABORATOR"}
+# The patrol posts from the operator's account; its own reviews and comments
+# carry this marker (or the longer footer it used before 2026-11-13). The same
+# account without a marker is the operator, whom the patrol answers.
+PATROL_MARKS = ("ai patrol review",
+                "ai-generated response; a maintainer will review and follow up later")
 FIRST_TIMER = {"FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER"}
 RESOLVED_LABELS = {"false positive"}
 FIXED_LABELS = {"fixed-on-master"}
@@ -63,10 +73,6 @@ FAILING = {"FAILURE", "ERROR"}
 QUEUED_STALE = dt.timedelta(hours=6)
 RELEASE_STALE = dt.timedelta(days=90)
 SELF_MERGE_STARS = 240
-# Files whose change keeps a pull request with a maintainer.
-SENSITIVE = re.compile(
-    r"(^|/)(\.github/|\.gitmodules$"
-    r"|(LICEN[CS]E|COPYING|SECURITY|CODEOWNERS)(\.[A-Za-z]+)?$)", re.I)
 # gh failures worth another try: network drops and GitHub's rate pushback.
 TRANSIENT = re.compile(r"timeout|TLS handshake|connection reset|EOF|HTTP 50[234]"
                        r"|error connecting|dial tcp|connectex|connection refused"
@@ -174,13 +180,14 @@ query($org: String!, $repo: String!, $after: String) {
         author { login } authorAssociation
         baseRefName headRefOid isCrossRepository maintainerCanModify
         headRepository { nameWithOwner }
-        changedFiles files(first: 100) { nodes { path } }
-        reviews(last: 40) { nodes { author { login } state commit { oid } } }
+        reviews(last: 40) { nodes { author { login } state body commit { oid } } }
         reviewThreads(last: 30) { nodes { isResolved
-          comments(last: 1) { nodes { author { login } } } } }
+          comments(last: 1) { nodes { author { login } body } } } }
         commits(last: 1) { nodes { commit {
           committedDate statusCheckRollup { state } } } }
         comments(last: 30) { nodes { author { login } authorAssociation createdAt } }
+        lastComment: comments(last: 1) { nodes {
+          author { login } authorAssociation body } }
       }
     }
   }
@@ -198,7 +205,8 @@ query($org: String!, $repo: String!, $after: String) {
         closedByPullRequestsReferences(first: 5, includeClosedPrs: true) {
           nodes { number state }
         }
-        comments(last: 30) { nodes { author { login } authorAssociation createdAt } }
+        lastComment: comments(last: 1) { nodes {
+          author { login } authorAssociation body } }
       }
     }
   }
@@ -213,7 +221,7 @@ query($org: String!, $repo: String!, $after: String) {
         number title url createdAt isAnswered
         category { isAnswerable }
         author { login }
-        comments(last: 20) { nodes { author { login } authorAssociation } }
+        comments(last: 20) { nodes { author { login } authorAssociation body } }
       }
     }
   }
@@ -239,14 +247,26 @@ def login(node):
     return (node.get("author") or {}).get("login")
 
 
-def last_word_is_maintainer(author, comments, patrol):
-    """True when the latest comment is from a maintainer or the patrol."""
-    nodes = [c for c in comments if c.get("author")]
-    if not nodes:
+def by_patrol(node, patrol):
+    """The patrol wrote it: the shared account and the patrol marker."""
+    body = (node.get("body") or "").lower()
+    return login(node) == patrol and any(mark in body for mark in PATROL_MARKS)
+
+
+def by_operator(node, patrol):
+    """The operator wrote it through the shared account, without the marker."""
+    return login(node) == patrol and not by_patrol(node, patrol)
+
+
+def needs_reply(author, last, patrol):
+    """True when the latest comment waits for the patrol: the operator wrote
+    it, or someone other than a maintainer did, or the item's own author did.
+    The patrol never answers its own comment."""
+    if not last or not last.get("author") or by_patrol(last, patrol):
         return False
-    last = nodes[-1]
-    return (last["authorAssociation"] in MAINTAINER
-            or last["author"]["login"] == patrol) and last["author"]["login"] != author
+    if by_operator(last, patrol):
+        return True
+    return last["authorAssociation"] not in MAINTAINER or login(last) == author
 
 
 def compare(org, repo, base, head, field):
@@ -299,7 +319,7 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         item = {"repo": name, "number": pr["number"], "url": pr["url"],
                 "title": pr["title"][:90], "author": author, "draft": pr["isDraft"],
                 "head": pr["headRefOid"][:8]}
-        reviewed = any(login(r) == patrol
+        reviewed = any(by_patrol(r, patrol)
                        and (r.get("commit") or {}).get("oid") == pr["headRefOid"]
                        for r in pr["reviews"]["nodes"])
         if not reviewed:
@@ -320,28 +340,23 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         if author != patrol and now - max(author_times) > dt.timedelta(days=14):
             out["pr_author_silent_14d"].append(
                 dict(item, silent_days=(now - max(author_times)).days))
-        comments = pr["comments"]["nodes"]
-        if comments and not last_word_is_maintainer(author, comments, patrol) \
-                and login(comments[-1]) != patrol:
+        if needs_reply(author, (pr["lastComment"]["nodes"] or [None])[0], patrol):
             out["pr_awaiting_reply"].append(item)
         open_threads = [t for t in pr["reviewThreads"]["nodes"] if not t["isResolved"]]
-        waiting = [t for t in open_threads
-                   if login((t["comments"]["nodes"] or [{}])[-1]) != patrol]
-        if author == patrol and waiting:
+        # On the shared account's pull requests every thread is the patrol's
+        # to close; elsewhere the threads the operator answered last.
+        lasts = [(t["comments"]["nodes"] or [{}])[-1] for t in open_threads]
+        waiting = [c for c in lasts
+                   if (author == patrol and not by_patrol(c, patrol))
+                   or by_operator(c, patrol)]
+        if waiting:
             out["pr_threads_awaiting_patrol"].append(
                 dict(item, detail=f"{len(waiting)} unresolved threads"))
-        paths = [f["path"] for f in pr["files"]["nodes"]]
-        sensitive = sorted({p for p in paths if SENSITIVE.search(p)})
-        block = merge_block
-        if block is None and sensitive:
-            block = "touches " + ", ".join(sensitive[:3])
-        if block is None and pr["changedFiles"] > len(paths):
-            block = f"{pr['changedFiles']} files"
         pending.append({
             "item": item, "base": pr["baseRefName"], "headsha": pr["headRefOid"],
             "conflicting": pr["mergeable"] == "CONFLICTING",
             "writable": not pr["isCrossRepository"] or pr["maintainerCanModify"],
-            "merge_block": block,
+            "merge_block": merge_block,
             "ready": (not pr["isDraft"] and pr["mergeable"] == "MERGEABLE"
                       and state == "SUCCESS" and reviewed and not open_threads)})
 
@@ -358,11 +373,10 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
             out[key].append(item)
         if not labels:
             out["issue_unlabeled"].append(item)
-        comments = issue["comments"]["nodes"]
-        if not last_word_is_maintainer(author, comments, patrol) \
-                and not (comments and login(comments[-1]) == patrol):
-            if issue["authorAssociation"] not in MAINTAINER or comments:
-                out["issue_awaiting_reply"].append(item)
+        last = (issue["lastComment"]["nodes"] or [None])[0]
+        if (needs_reply(author, last, patrol) if last
+                else issue["authorAssociation"] not in MAINTAINER):
+            out["issue_awaiting_reply"].append(item)
 
     if repo.get("hasDiscussionsEnabled"):
         for d in paged(DISCUSSIONS, "discussions", org=org, repo=name):
@@ -370,7 +384,8 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
             answered = d["isAnswered"] if d["category"]["isAnswerable"] else False
             maintainer_spoke = any(c["authorAssociation"] in MAINTAINER
                                    or login(c) == patrol for c in comments)
-            if not answered and not maintainer_spoke:
+            operator_last = bool(comments) and by_operator(comments[-1], patrol)
+            if operator_last or (not answered and not maintainer_spoke):
                 out["discussion_unanswered"].append(
                     {"repo": name, "number": d["number"], "url": d["url"],
                      "title": d["title"][:90]})

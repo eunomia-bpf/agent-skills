@@ -17,6 +17,12 @@ Operator, 2026-11-13, verbatim:
 
 > “删库之类的本身就被保护起来需要二次验证了对吧? 240 star 以下吧”
 
+> “我自己写的 pr 我自己也要负责 review 吧, 并且确保. 且“敏感文件”判断过宽，把 docs/security_model.md 误判为安全策略文件 这个不要搞? 干嘛要敏感文件?”
+
+> “巡检 rview 需要标记来自巡检 rveiew (两三个词), 这样我自己的别的 comment 回答你也要去看和回复, 但是不要回复自己”
+
+> “脚本只作为提示. 脚本出问题之后巡检 agent 可自己做必要的修复或者改进, 但是不改 skills 文本.”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -39,6 +45,20 @@ This rule comes first; every other passage of this skill applies it.
   itself: in a small independent repository (fewer than 240 stars, and no
   other repository depends on it) the patrol merges a normal pull request,
   under the conditions in **Merging** below.
+- Pull requests from `yunwei37` (the operator's account, which the patrol
+  posts as) are the patrol's own responsibility: it reviews them as strictly
+  as anyone's, builds and tests them, fixes what it finds, and makes sure
+  they work before they merge.
+- Every review, review reply and comment the patrol posts ends with the
+  standalone line `*AI patrol review*`. A comment from `yunwei37` without that
+  mark is the operator's own: read every one and answer what it asks or tells.
+  Never reply to a comment that carries the mark (or the longer footer used
+  before 2026-11-13); that is the patrol's own.
+- The worklist script is a hint, never the authority on what needs doing. When
+  it fails, misses or misreports something, the patrol fixes or improves the
+  script itself: commit to `skills/eunomia-community-patrol/scripts/` in
+  `eunomia-bpf/agent-skills` and move the eunomia.dev pointer. It never edits
+  the text of this skill.
 - Look beyond the named checks. Anything community-related this skill does not
   name (a broken README link, a stale badge, an outdated install instruction,
   a spam wave, a security report in an unusual place, a burst of new users) is
@@ -150,7 +170,7 @@ another passage reads differently, these sections apply.
   major-version jump gets its pull request too, with the breakage it causes and
   the code changes that fix it.
 - In repositories with GitHub Discussions, answer every open question as a
-  maintainer, with the same evidence standard and footer as issue replies.
+  maintainer, with the same evidence standard and mark as issue replies.
 - Inside this patrol, `oss-issue-triage` supplies classification only; its
   read-only and draft-only defaults do not apply.
 - Review every open pull request in scope and publish the review on GitHub in
@@ -232,9 +252,10 @@ priority item.
      unlabeled issues (label them while triaging), first-time contributors
      (welcome them in the review), growth (stars, forks, watchers, 14-day
      views and their change), and checks the token could not read.
-   The script decides what is open; the patrol decides what to say and what
-   code to write. Work the `WARN` list in its order, highest impact first, and
-   never drop an item silently. An item outside the patrol's reach (a runner
+   The script is a hint: the patrol decides what to say and what code to
+   write, works what it finds beyond the list, and repairs the script when it
+   is wrong (see the meta rule). Work the `WARN` list in its order, highest
+   impact first, and never drop an item silently. An item outside the patrol's reach (a runner
    on someone else's machine, a setting only an administrator can change) gets
    a tracking issue that names the machine or setting, the evidence and what
    has to happen.
@@ -497,7 +518,7 @@ GitHub or commit it.
   blocker, or requested next step that matters to the contributor. Acknowledge
   the contributor's effort or context when appropriate, explain evidence
   without blame, and distinguish confirmed facts from inferences.
-- Apart from the required disclosure footer below, never mention the patrol,
+- Apart from the required mark below, never mention the patrol,
   sweep, scheduled run, automation process, internal queue, memory, or tooling
   details in public GitHub text.
 - Avoid status-banner or ceremonial preambles. When revisiting an item, explain
@@ -525,14 +546,18 @@ GitHub or commit it.
   choice never creates authority to decide on someone's behalf.
 - End every issue comment, pull request conversation comment, inline review
   reply, and submitted review authored by the patrol with this exact standalone
-  final paragraph:
+  final paragraph, the mark that tells the patrol's words from the operator's
+  on the shared account:
 
-  `AI-generated response; a maintainer will review and follow up later`
+  `*AI patrol review*`
 
-- Keep the disclosure exactly as written, in English, and include it exactly
-  once. When editing an existing patrol reply, preserve its substantive text
-  and add the footer if it is missing.
-- Apply this disclosure only to public GitHub replies authored by the patrol.
+- Keep the mark exactly as written, in English, and include it exactly once.
+  Replies posted before 2026-11-13 end with the older footer
+  `AI-generated response; a maintainer will review and follow up later`;
+  leave those as they are, the worklist recognizes both. When editing an
+  existing patrol reply, preserve its substantive text and add the mark if
+  neither is present.
+- Apply this mark only to public GitHub replies authored by the patrol.
   Do not add it to pull request bodies, branch names, commit messages, release
   text, repository documentation, or unrelated open-source work.
 - Before sending public text through a shell-backed GitHub client, use a
@@ -724,11 +749,10 @@ request in the same run when all of these hold:
   (`https://github.com/eunomia-bpf/<repo>/network/dependents`) lists no
   dependent repository or package, and the project is no published library
   that others build on;
-- the pull request is normal: a bug fix, documentation, tests, examples, a
-  patch or minor dependency upgrade, or a small self-contained feature. It
-  touches no CI, workflow, release or publishing, license, security policy,
-  CODEOWNERS or submodule file (the worklist already holds back those paths)
-  and changes no behavior other projects rely on;
+- the patrol's review finds the pull request normal: a bug fix,
+  documentation, tests, examples, CI or build upkeep, a dependency upgrade
+  whose build and tests pass, or a self-contained feature, changing no
+  behavior other projects rely on;
 - it is open, not a draft, mergeable and not behind its base, every check on
   its head passed, the patrol's published review of that head found nothing
   blocking, no review thread is unresolved, and no maintainer has requested
@@ -740,7 +764,7 @@ request in the same run when all of these hold:
 Merge with the method the repository's history uses (squash when the history
 is squashed), keep the author's credit, then comment that the patrol merged it
 under this rule. Pull requests from the patrol's own account qualify like any
-other.
+other, after the same review, build and tests.
 
 Everywhere else the patrol never merges, enables auto-merge or enqueues a pull
 request. Report a pull request as ready for a maintainer
@@ -767,7 +791,8 @@ item as awaiting re-review rather than as ready.
 
 Operator 2026-11-12 removed the earlier 500-star merge threshold; operator
 2026-11-13 set the narrower small-repository rule above.
-All patrol-authored public reviews and replies retain the disclosure footer.
+All patrol-authored public reviews and replies carry the `*AI patrol review*`
+mark.
 
 ## Name Branches, Commits, and Pull Requests Neutrally
 
@@ -786,9 +811,11 @@ All patrol-authored public reviews and replies retain the disclosure footer.
   enable auto-merge, enqueue one in a merge queue, or submit an approving
   review.
 - Commit or push to a default or release branch, push a tag, publish a release
-  or a package. The exceptions are a merge under **Merging** and the patrol's
+  or a package. The exceptions are a merge under **Merging**, the patrol's
   own control files in the eunomia.dev repository (`.agents/` and the
-  agent-skills pointer).
+  agent-skills pointer), and the worklist script in
+  `eunomia-bpf/agent-skills` (`skills/eunomia-community-patrol/scripts/`),
+  never this skill's text.
 - Anything destructive or privileged in the sense of the meta rule.
 - Force-push or rewrite history on any branch, except the rebase of a pull
   request's head branch onto its base described in the Highest Priority
