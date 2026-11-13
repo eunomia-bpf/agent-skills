@@ -82,10 +82,11 @@ differently, this section applies.
 - Bring every conflicting or outdated pull request branch up to date with its
   base by merging the base into it (never a rebase or force-push), when the
   branch is writable; otherwise publish the conflict and how to resolve it.
-- For every live dependency or security alert with a patched release, open an
-  upgrade pull request with its build and test evidence. A major-version jump
-  gets its pull request too, with the breakage it causes and the code changes
-  that fix it.
+- For live dependency or security alerts with a patched release, open one
+  upgrade pull request per repository and manifest that covers all of them,
+  with its build and test evidence, critical and high severity first. A
+  major-version jump gets its pull request too, with the breakage it causes and
+  the code changes that fix it.
 - In repositories with GitHub Discussions, answer every open question as a
   maintainer, with the same evidence standard and footer as issue replies.
 - Inside this patrol, `oss-issue-triage` supplies classification only; its
@@ -127,14 +128,12 @@ differently, this section applies.
   branch of a pull request targeting this organization.
 - Run in the Linux maintenance workspace. Do not redirect the task to Windows
   or PowerShell.
-- Schedule the patrol for 09:00 `America/Vancouver` every calendar day. A
-  successful manual patrol does not skip the next scheduled day. Retry a failed
-  run at the next daily scheduler wake and prevent overlapping runs with a
-  local lock.
-- Resume the designated Agent conversation for each eligible run so the final
-  report appears in that conversation. If the target session is unavailable,
-  fail without starting a second patrol, preserve the local log, and retry at
-  the next scheduler wake.
+- The duty runs every six hours (spark-manage `services/agent-duties/duties.yaml`)
+  under a local lock, so runs never overlap. A manual run does not skip the next
+  scheduled one.
+- Each run starts a fresh Agent session. Continuity comes from the worklist,
+  GitHub itself and the latest run summaries in the local memory, never from a
+  long conversation.
 
 Keep all new and previously tracked actionable items in the queue. Prioritize
 security, confirmed bugs, blocked fixes, needs-info, documentation or support,
@@ -143,12 +142,21 @@ priority item.
 
 ## Start Every Run
 
-1. Read the local automation memory completely. Use it to avoid duplicate
-   comments and resume every unresolved item.
-2. Read and follow `oss-issue-triage` for issue and pull request
+1. Run `scripts/patrol_worklist.py --json "$STATE/worklist-start.json"` from
+   this skill directory (`$STATE` is
+   `/workspaces/.agent-state/eunomia-community-patrol`). It walks every public
+   repository through the GitHub API and lists, item by item, what the rules in
+   the Highest Priority section require: pull requests without a patrol review
+   of their head, failing or conflicting pull requests, authors silent for two
+   weeks, waiting workflow runs, reported bugs with neither a fix pull request
+   nor a `false positive` label, issues and Discussions whose last word is not a
+   maintainer's, failing default branches and open dependency alerts. The
+   script decides what is open; the patrol decides what to say and what code
+   to write. Work the list in its order, highest impact first, and never drop
+   an item silently.
+2. Read the last three run summaries in the local memory, not the whole file.
+3. Read and follow `oss-issue-triage` for issue and pull request
    classification.
-3. Refresh the organization repository list instead of relying on the previous
-   inventory.
 4. Before changing a repository, read and follow `oss-change-workflow` and the
    target repository's `AGENTS.md`, `CONTRIBUTING`, `SECURITY.md`, `README`, and
    relevant workflows.
@@ -670,6 +678,10 @@ All patrol-authored public reviews and replies retain the disclosure footer.
 
 ## Report and Persist
 
+End every run by running `scripts/patrol_worklist.py --json
+"$STATE/worklist-end.json"` again. The report opens with each worklist count at
+the start and at the end of the run.
+
 Write a concise, actionable Chinese report that includes:
 
 - total open items discovered and total actionable items;
@@ -688,5 +700,12 @@ discovery as completed work. List every open pull request with the link to the
 published patrol review of its current head; a pull request without one is a
 failure of the run, never a tracked or held item.
 
-Update local automation memory with the minimum deduplication and follow-up
-state plus the run summary. Do not commit or publish the memory.
+Append the run summary to the local memory and keep only the latest ten run
+summaries there; move older ones into `memory-archive-<date>.md` in the same
+directory (moved, never deleted). Do not commit or publish the memory.
+
+Keep one clone per repository under `/workspaces/patrol-repositories/<repo>`,
+switching branches inside it for each pull request. Before removing a second
+clone of the same repository, confirm it has no unpushed commits and no local
+changes; a clone with either stays until its work is pushed. Never store a
+token in a git remote URL.
