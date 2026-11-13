@@ -571,7 +571,11 @@ under `/tmp` reached about 440 GB, filled g485 and got the patrol evicted
 mid-run. Keep one build tree per repository at `/tmp/patrol-build/<repo>`,
 reuse it across pull requests by switching the checkout and rebuilding, delete
 it when the run ends, and check `df /` before each configure: below 25% free,
-delete the other build trees first.
+delete the other build trees first. In-tree outputs count too: point
+`CARGO_TARGET_DIR` at `/tmp/patrol-build/<repo>/target`, and at the end of each
+run delete the git-ignored `target`, `node_modules`, `build`, `dist` and `.next`
+directories inside `/workspaces/patrol-repositories`. On 2026-11-13 they held
+10.5 GB of the 32 GB Workspace volume.
 
 A missing build or test toolchain is a reachable-work problem, not a blocker.
 Before deferring a dependency or build change to a maintainer, check whether the
