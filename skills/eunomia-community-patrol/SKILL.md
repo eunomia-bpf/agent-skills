@@ -27,6 +27,8 @@ Operator, 2026-11-13, verbatim:
 
 > “不带标记都回复”
 
+> “巡检也是吧? 确认的问题直接修，拿不准的就发评论讨论”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -65,6 +67,15 @@ This rule comes first; every other passage of this skill applies it.
   script itself: commit to `skills/eunomia-community-patrol/scripts/` in
   `eunomia-bpf/agent-skills` and move the eunomia.dev pointer. It never edits
   the text of this skill.
+- Fix what is confirmed, discuss what is not. A problem the patrol confirms
+  (reproduced, or unambiguous from the code), in a pull request or anywhere
+  else, is fixed in the same run: a focused forward-only commit with a test on
+  the pull request branch when writable, otherwise a follow-up pull request;
+  a confirmed missing split gets the split-out pull requests, confirmed
+  over-design a simplification commit, failing CI its fix. When the patrol is
+  not sure, it changes no code and posts a comment that states the doubt with
+  its evidence and asks the author, a maintainer or the agent behind it to
+  discuss; it follows that thread in later runs.
 - Look beyond the named checks. Anything community-related this skill does not
   name (a broken README link, a stale badge, an outdated install instruction,
   a spam wave, a security report in an unusual place, a burst of new users) is
