@@ -62,10 +62,29 @@ MAINTAINER = {"OWNER", "MEMBER", "COLLABORATOR"}
 PATROL_MARKS = ("ai patrol review",
                 "ai-generated response; a maintainer will review and follow up later")
 FIRST_TIMER = {"FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER"}
-# The patrol marks every pull request it reviewed with exactly one of these.
-VERDICT_LABELS = {"AI review: approve", "AI review: changes requested",
-                  "AI review: discussion"}
-NOT_READY_LABELS = {"AI review: changes requested", "AI review: discussion"}
+# Every patrol comment opens with "Verdict: ..." (SKILL.md, Review verdicts),
+# and a reviewed pull request carries exactly one of these labels. Comments
+# posted before the rule (2026-11-15) are left as they are.
+VERDICT = "Verdict:"
+READY = "Verdict: ready to merge"
+VERDICT_SINCE = "2026-11-15T00:00:00Z"
+READY_LABEL = "AI review: ready to merge"
+NOT_READY_LABELS = {"AI review: merge after CI", "AI review: needs fixes",
+                    "AI review: design problem", "AI review: not recommended",
+                    "AI review: discussion"}
+VERDICT_LABELS = NOT_READY_LABELS | {READY_LABEL}
+
+
+def first_line(node):
+    lines = ((node or {}).get("body") or "").strip().splitlines()
+    return lines[0].strip() if lines else ""
+
+
+def verdict_missing(node, patrol):
+    """A patrol comment since the rule that does not open with its verdict."""
+    return (node is not None and by_patrol(node, patrol)
+            and (node.get("createdAt") or "") >= VERDICT_SINCE
+            and not first_line(node).startswith(VERDICT))
 RESOLVED_LABELS = {"false positive"}
 FIXED_LABELS = {"fixed-on-master"}
 BUG_LABEL = re.compile(r"bug|crash|regression|defect", re.I)
@@ -110,6 +129,7 @@ CATEGORIES = [
     ("pr_author_silent_14d", "WARN"),
     ("pr_awaiting_reply", "WARN"),
     ("issue_awaiting_reply", "WARN"),
+    ("issue_verdict_missing", "WARN"),
     ("discussion_unanswered", "WARN"),
     ("site_broken", "WARN"),
     ("pr_ready_for_maintainer", "INFO"),
@@ -189,14 +209,14 @@ query($org: String!, $repo: String!, $after: String) {
         baseRefName headRefOid isCrossRepository maintainerCanModify
         headRepository { nameWithOwner }
         labels(first: 20) { nodes { name } }
-        reviews(last: 40) { nodes { author { login } state body commit { oid } } }
+        reviews(last: 40) { nodes { author { login } state body submittedAt commit { oid } } }
         reviewThreads(last: 30) { nodes { isResolved
           comments(last: 1) { nodes { author { login } body } } } }
         commits(last: 1) { nodes { commit {
           committedDate statusCheckRollup { state } } } }
         comments(last: 30) { nodes { author { login } authorAssociation createdAt } }
         lastComment: comments(last: 1) { nodes {
-          author { login } authorAssociation body } }
+          author { login } authorAssociation body createdAt } }
       }
     }
   }
@@ -215,7 +235,7 @@ query($org: String!, $repo: String!, $after: String) {
           nodes { number state }
         }
         lastComment: comments(last: 1) { nodes {
-          author { login } authorAssociation body } }
+          author { login } authorAssociation body createdAt } }
       }
     }
   }
@@ -370,30 +390,39 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         head_reviews = [r for r in patrol_reviews
                         if (r.get("commit") or {}).get("oid") == pr["headRefOid"]]
         labels = {l["name"] for l in (pr.get("labels") or {}).get("nodes", [])}
-        verdicts = [r for r in patrol_reviews
-                    if (r.get("body") or "").lstrip().startswith("Verdict:")]
-        verdict_lines = verdicts[-1]["body"].strip().splitlines() if verdicts else [""]
+        last = (pr["lastComment"]["nodes"] or [None])[0]
+        # The verdict that stands: the latest patrol review or comment that
+        # opens with one.
+        said = [r for r in patrol_reviews if first_line(r).startswith(VERDICT)]
+        if last is not None and by_patrol(last, patrol) and first_line(last).startswith(VERDICT):
+            said.append(last)
+        said.sort(key=lambda n: n.get("submittedAt") or n.get("createdAt") or "")
+        standing = said[-1] if said else None
         # A pull request the patrol found not ready to be merged is the next
         # run's fix (SKILL.md, Review verdicts).
-        if labels & NOT_READY_LABELS or "not ready to merge" in verdict_lines[0]:
-            todo = " ".join(" ".join(verdict_lines[1:]).split())[:160]
-            first = verdict_lines[0] or ", ".join(sorted(labels & NOT_READY_LABELS))
+        if (labels & NOT_READY_LABELS
+                or (standing is not None and first_line(standing) != READY)):
+            body = ((standing or {}).get("body") or "").strip().splitlines()
+            todo = " ".join(" ".join(body[1:]).split())[:160]
+            first = first_line(standing) or ", ".join(sorted(labels & NOT_READY_LABELS))
             out["pr_not_ready"].append(
                 dict(item, detail=first + ("; " + todo if todo else "")))
-        approved = bool(head_reviews) and (head_reviews[-1].get("body") or "").lstrip().startswith(
-            "Verdict: approve") and not labels & NOT_READY_LABELS
+        approved = (bool(head_reviews) and first_line(head_reviews[-1]) == READY
+                    and READY_LABEL in labels and not labels & NOT_READY_LABELS)
         if not head_reviews:
             out["pr_needs_review"].append(item)
         else:
-            # Every review states a verdict on its first line, and the pull
-            # request carries exactly one verdict label (SKILL.md, Review verdicts).
-            stated = any((r.get("body") or "").lstrip().startswith("Verdict:")
-                         for r in head_reviews)
+            # The head review opens with its verdict, the pull request carries
+            # exactly one verdict label, and every later patrol comment opens
+            # with the verdict too (SKILL.md, Review verdicts).
+            stated = any(first_line(r).startswith(VERDICT) for r in head_reviews)
             marked = len(labels & VERDICT_LABELS)
-            if not stated or marked != 1:
+            comment_ok = not verdict_missing(last, patrol)
+            if not stated or marked != 1 or not comment_ok:
                 out["pr_verdict_missing"].append(dict(
-                    item, detail=f"verdict line {'present' if stated else 'missing'}, "
-                                 f"{marked} verdict labels"))
+                    item, detail=f"review verdict {'present' if stated else 'missing'}, "
+                                 f"{marked} verdict labels"
+                                 + ("" if comment_ok else ", last comment without verdict")))
         if pr["mergeable"] == "CONFLICTING":
             out["pr_conflicting"].append(item)
         if pr.get("authorAssociation") in FIRST_TIMER:
@@ -447,6 +476,8 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         if (needs_reply(author, last, patrol) if last
                 else issue["authorAssociation"] not in MAINTAINER):
             out["issue_awaiting_reply"].append(item)
+        if verdict_missing(last, patrol):
+            out["issue_verdict_missing"].append(item)
 
     if repo.get("hasDiscussionsEnabled"):
         for d in paged(DISCUSSIONS, "discussions", org=org, repo=name):

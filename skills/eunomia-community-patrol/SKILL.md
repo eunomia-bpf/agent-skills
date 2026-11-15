@@ -37,6 +37,10 @@ Operator, 2026-11-14, verbatim:
 
 > “不能合并的话, 需要下一次巡检去修复”
 
+Operator, 2026-11-15, verbatim:
+
+> “为啥最新的 review 还是没有结论? 是不是要求每一个巡检的 comment 要包含有个 结论: 说是不是可以合并, 是不是需要修, 还是不建议合并, 还是设计有问题之类的, 或者等 ci 好了可以合并之类的?”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -63,10 +67,11 @@ This rule comes first; every other passage of this skill applies it.
   posts as) are the patrol's own responsibility: it reviews them as strictly
   as anyone's, builds and tests them, fixes what it finds, and makes sure
   they work before they merge.
-- Every review states a verdict on the head it reviewed: **approve** (ready
-  for a maintainer to merge), **request changes** (a blocking problem remains)
-  or **discussion** (an open question the patrol cannot settle). See **Review
-  verdicts** below.
+- Every comment the patrol posts, on a pull request or an issue, opens with
+  its conclusion: on a pull request whether the head can be merged now, after
+  CI turns green, needs fixes, has a design problem, is not recommended for
+  merging, or waits on an open question; on an issue what the patrol
+  concluded. See **Review verdicts** below.
 - Every review, review reply and comment the patrol posts ends with the
   standalone line `*AI patrol review*`. A comment from `yunwei37` without that
   mark is the operator's own: read every one and answer what it asks or tells.
@@ -214,8 +219,9 @@ another passage reads differently, these sections apply.
   memory or reports, and never record an item as held. An item that an older
   memory lists as held is reviewed and published in this run, then tracked like
   any other item.
-- Publish each review once, as a pull request review that carries its
-  verdict (**Review verdicts**).
+- Publish each review once, as a pull request review that opens with its
+  verdict (**Review verdicts**); every other patrol comment on the pull
+  request opens with the verdict that stands for its head.
 - When a review or any patrol step finds a bug, write the fix in the same run:
   push a focused commit with a regression test to the pull request branch when
   it is writable, otherwise open a pull request, and publish what changed.
@@ -617,8 +623,8 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
   their exact writable PR branch, and respond to or resolve addressed review
   threads after verifying the changes;
 - submit evidence-backed PR reviews in the approve, request-changes or
-  comment state that matches the verdict, and add or replace the verdict
-  label;
+  comment state that matches the verdict, and add or replace the
+  `AI review:` verdict label;
 - request reviewers on pull requests, and open issues that track a confirmed
   bug, a failing default-branch check or a runner fault;
 - rebase a pull request's writable head branch onto its current base to
@@ -634,48 +640,52 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 
 ### Review verdicts
 
-Every review of a pull request head ends in one verdict, stated three ways:
+Every patrol comment opens with a conclusion line. On a pull request it is the
+verdict on the head the comment speaks about, one of six:
 
-- **approve**: the head is ready for a maintainer to merge. Every finding of
-  this review is fixed, no review thread is open, the branch is up to date or
-  free of conflicts, and every check on the head is green or its failure is
-  shown to come from outside the change (name the check and the base-branch or
-  runner fault, with its link).
-- **request changes**: a blocking problem remains, such as a confirmed bug not
-  yet fixed on the branch, a check the change breaks, a needed split, or a CI
-  run the patrol judged unsafe to approve.
-- **discussion**: an open question the patrol cannot settle from the code and
-  has asked the author or a maintainer about.
+| First line | When | GitHub review state | Label |
+| --- | --- | --- | --- |
+| `Verdict: ready to merge` | every finding fixed, no open review thread, branch up to date or free of conflicts, every check green or its failure shown to come from outside the change (name the check and the base-branch or runner fault, with its link) | approve | `AI review: ready to merge` |
+| `Verdict: ready to merge once CI is green` | the code is ready and checks on the head are still queued or running | comment | `AI review: merge after CI` |
+| `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict | request changes | `AI review: needs fixes` |
+| `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is | request changes | `AI review: design problem` |
+| `Verdict: not recommended to merge` | superseded, duplicate, obsolete or out of scope; name the pull request or commit that replaces it | request changes | `AI review: not recommended` |
+| `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer | comment | `AI review: discussion` |
 
-1. The first line of the review body states the verdict and whether the head
-   is ready to be merged: `Verdict: approve — ready to merge`,
-   `Verdict: request changes — not ready to merge` or
-   `Verdict: discussion — not ready to merge`. When it is not ready, the next
-   lines list what still has to happen before it is, and which of it the
-   patrol fixes itself.
-2. The review's GitHub state matches: `gh pr review --approve`,
-   `--request-changes` or `--comment`. GitHub refuses approve and
+1. The lines after the verdict say what still has to happen before the head
+   can be merged and who does it; what the patrol can fix, it fixes (below).
+2. The review's GitHub state matches the table. GitHub refuses approve and
    request-changes from a pull request's own author, so on pull requests
    opened from `yunwei37` (the account the patrol posts as) the review is a
-   comment review whose first line still says whether the head is ready to be
-   merged, and the label carries the verdict. An approval from the
-   patrol counts toward the base branch's required approvals; the merge stays
-   with a maintainer (outside **Merging**).
-3. The pull request carries exactly one label `AI review: approve`,
-   `AI review: changes requested` or `AI review: discussion` (create a
-   missing label in the repository). When the head changes, remove the label
-   until the new head is reviewed, so the label always speaks for the head the
-   patrol last reviewed.
+   comment review; its first line still carries the verdict and the label
+   carries it too. An approval from the patrol counts toward the base
+   branch's required approvals; the merge stays with a maintainer (outside
+   **Merging**).
+3. The pull request carries exactly one `AI review:` label from the table
+   (create a missing label in the repository). When the head changes, remove
+   the label until the new head is reviewed, so the label always speaks for
+   the head the patrol last reviewed.
+4. Every other patrol comment on the pull request (a reply in a review thread,
+   a CI diagnosis, a rebase or fix notice) also opens with the verdict line
+   that stands for the head it speaks about; when that comment changes the
+   verdict, the label and review state change with it.
+5. On an issue the first line states the conclusion: `Verdict: confirmed bug
+   — fix in #<number>`, `Verdict: false positive`, `Verdict: needs
+   information from the reporter`, `Verdict: answered`, `Verdict: duplicate of
+   #<number>` or `Verdict: feature request`, followed by the evidence.
 
 A pull request the patrol found not ready to be merged is fixed by the next
 run at the latest (the worklist lists it as `pr_not_ready`). That run works
 every item the verdict listed: it pushes forward-only commits to the head
 branch when it is writable, otherwise opens a linked follow-up pull request
-that keeps the author's commits; it rebases, repairs CI, splits, and
-implements what an answered discussion settled. Then it reviews the new head
+that keeps the author's commits; it rebases, repairs CI, splits or reworks a
+design problem, and implements what an answered discussion settled. A head
+marked ready once CI is green gets the CI result read in that run: green turns
+the verdict into ready to merge, red is fixed. Then it reviews the new head
 and states the new verdict. What stays is only what the patrol cannot reach
 (exclusive hardware, a private credential, an author's or maintainer's answer
-to a question still open), and the review names it.
+to a question still open, the close of a pull request not recommended for
+merging), and the review names it.
 
 A later review of the same head that changes the verdict replaces the label
 and, for another author's pull request, submits the new state; a fix the
