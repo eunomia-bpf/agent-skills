@@ -62,6 +62,10 @@ MAINTAINER = {"OWNER", "MEMBER", "COLLABORATOR"}
 PATROL_MARKS = ("ai patrol review",
                 "ai-generated response; a maintainer will review and follow up later")
 FIRST_TIMER = {"FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER"}
+# The patrol marks every pull request it reviewed with exactly one of these.
+VERDICT_LABELS = {"AI review: approve", "AI review: changes requested",
+                  "AI review: discussion"}
+NOT_READY_LABELS = {"AI review: changes requested", "AI review: discussion"}
 RESOLVED_LABELS = {"false positive"}
 FIXED_LABELS = {"fixed-on-master"}
 BUG_LABEL = re.compile(r"bug|crash|regression|defect", re.I)
@@ -99,6 +103,8 @@ CATEGORIES = [
     ("alerts_open", "WARN"),
     ("bug_unresolved", "WARN"),
     ("pr_needs_review", "WARN"),
+    ("pr_verdict_missing", "WARN"),
+    ("pr_not_ready", "WARN"),
     ("pr_threads_awaiting_patrol", "WARN"),
     ("pr_merge_small_repo", "WARN"),
     ("pr_author_silent_14d", "WARN"),
@@ -182,6 +188,7 @@ query($org: String!, $repo: String!, $after: String) {
         author { login } authorAssociation
         baseRefName headRefOid isCrossRepository maintainerCanModify
         headRepository { nameWithOwner }
+        labels(first: 20) { nodes { name } }
         reviews(last: 40) { nodes { author { login } state body commit { oid } } }
         reviewThreads(last: 30) { nodes { isResolved
           comments(last: 1) { nodes { author { login } body } } } }
@@ -359,11 +366,34 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         item = {"repo": name, "number": pr["number"], "url": pr["url"],
                 "title": pr["title"][:90], "author": author, "draft": pr["isDraft"],
                 "head": pr["headRefOid"][:8]}
-        reviewed = any(by_patrol(r, patrol)
-                       and (r.get("commit") or {}).get("oid") == pr["headRefOid"]
-                       for r in pr["reviews"]["nodes"])
-        if not reviewed:
+        patrol_reviews = [r for r in pr["reviews"]["nodes"] if by_patrol(r, patrol)]
+        head_reviews = [r for r in patrol_reviews
+                        if (r.get("commit") or {}).get("oid") == pr["headRefOid"]]
+        labels = {l["name"] for l in (pr.get("labels") or {}).get("nodes", [])}
+        verdicts = [r for r in patrol_reviews
+                    if (r.get("body") or "").lstrip().startswith("Verdict:")]
+        verdict_lines = verdicts[-1]["body"].strip().splitlines() if verdicts else [""]
+        # A pull request the patrol found not ready to be merged is the next
+        # run's fix (SKILL.md, Review verdicts).
+        if labels & NOT_READY_LABELS or "not ready to merge" in verdict_lines[0]:
+            todo = " ".join(" ".join(verdict_lines[1:]).split())[:160]
+            first = verdict_lines[0] or ", ".join(sorted(labels & NOT_READY_LABELS))
+            out["pr_not_ready"].append(
+                dict(item, detail=first + ("; " + todo if todo else "")))
+        approved = bool(head_reviews) and (head_reviews[-1].get("body") or "").lstrip().startswith(
+            "Verdict: approve") and not labels & NOT_READY_LABELS
+        if not head_reviews:
             out["pr_needs_review"].append(item)
+        else:
+            # Every review states a verdict on its first line, and the pull
+            # request carries exactly one verdict label (SKILL.md, Review verdicts).
+            stated = any((r.get("body") or "").lstrip().startswith("Verdict:")
+                         for r in head_reviews)
+            marked = len(labels & VERDICT_LABELS)
+            if not stated or marked != 1:
+                out["pr_verdict_missing"].append(dict(
+                    item, detail=f"verdict line {'present' if stated else 'missing'}, "
+                                 f"{marked} verdict labels"))
         if pr["mergeable"] == "CONFLICTING":
             out["pr_conflicting"].append(item)
         if pr.get("authorAssociation") in FIRST_TIMER:
@@ -398,7 +428,7 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
             "writable": not pr["isCrossRepository"] or pr["maintainerCanModify"],
             "merge_block": merge_block,
             "ready": (not pr["isDraft"] and pr["mergeable"] == "MERGEABLE"
-                      and state == "SUCCESS" and reviewed and not open_threads)})
+                      and state == "SUCCESS" and approved and not open_threads)})
 
     for issue in paged(ISSUES, "issues", org=org, repo=name):
         labels = {l["name"].lower() for l in issue["labels"]["nodes"]}

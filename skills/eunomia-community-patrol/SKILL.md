@@ -29,6 +29,14 @@ Operator, 2026-11-13, verbatim:
 
 > “巡检也是吧? 确认的问题直接修，拿不准的就发评论讨论”
 
+Operator, 2026-11-14, verbatim:
+
+> “AI 巡检需要标注 approve / request change 之类的.”
+
+> “如果是自己的 PR, 没法 approve, 也需要在 comment 里面说明是不是 ready to be merged”
+
+> “不能合并的话, 需要下一次巡检去修复”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -46,7 +54,7 @@ This rule comes first; every other passage of this skill applies it.
 - Privileged: repository and organization settings, permissions, branch
   protection, secrets, webhooks, runners, environments, Actions settings,
   deployment configuration, an administrator's bypass of branch protection,
-  an approving review, and publishing a release, tag or package.
+  and publishing a release, tag or package.
 - Merging stays with a maintainer, with one exception the patrol carries out
   itself: in a small independent repository (fewer than 240 stars, and no
   other repository depends on it) the patrol merges a normal pull request,
@@ -55,6 +63,10 @@ This rule comes first; every other passage of this skill applies it.
   posts as) are the patrol's own responsibility: it reviews them as strictly
   as anyone's, builds and tests them, fixes what it finds, and makes sure
   they work before they merge.
+- Every review states a verdict on the head it reviewed: **approve** (ready
+  for a maintainer to merge), **request changes** (a blocking problem remains)
+  or **discussion** (an open question the patrol cannot settle). See **Review
+  verdicts** below.
 - Every review, review reply and comment the patrol posts ends with the
   standalone line `*AI patrol review*`. A comment from `yunwei37` without that
   mark is the operator's own: read every one and answer what it asks or tells.
@@ -123,9 +135,9 @@ another passage reads differently, these sections apply.
   except the small-repository merges. Everything below **Authorized Writes**
   happens automatically, without asking: comments, labels and branch pushes
   stay reviewable or reversible. The patrol merges only under **Merging**,
-  never submits an approving review (an approval from the posting account
-  reads as the maintainer's own sign-off and is the last gate before a merge),
-  writes to a default branch only through such a merge, never writes a
+  marks every review with its verdict (an approval it submits states that the
+  head is ready; the merge itself stays with a maintainer), writes to a
+  default branch only through such a merge, never writes a
   release branch, tag, release or package, never force-pushes or rewrites
   history except to rebase a pull request's head branch onto its base, and
   never closes another author's issue or pull request; a `false positive`
@@ -202,13 +214,15 @@ another passage reads differently, these sections apply.
   memory or reports, and never record an item as held. An item that an older
   memory lists as held is reviewed and published in this run, then tracked like
   any other item.
-- Publish each review once, as a pull request review in the comment or
-  request-changes state.
+- Publish each review once, as a pull request review that carries its
+  verdict (**Review verdicts**).
 - When a review or any patrol step finds a bug, write the fix in the same run:
   push a focused commit with a regression test to the pull request branch when
   it is writable, otherwise open a pull request, and publish what changed.
-- A head that already carries a published patrol review needs no duplicate; a
-  new head gets a new review.
+- A head that already carries a published patrol review with its verdict
+  needs no duplicate; a head whose patrol review predates verdicts gets one
+  short review that states the verdict and adds the label; a new head gets a
+  new review.
 - Outside small independent repositories, merging belongs to a maintainer. A
   review, a fix and their publication never wait for it.
 
@@ -259,7 +273,9 @@ priority item.
      capacity), offline self-hosted runners, workflows GitHub disabled for
      inactivity, secret, code and dependency alerts, reported bugs with
      neither a fix pull request nor a `false positive` label, pull requests
-     without a patrol review of their head, unresolved review threads on the
+     without a patrol review of their head, reviews without their verdict
+     line or label, pull requests the patrol's last verdict found not ready to
+     be merged (fix them, **Review verdicts**), unresolved review threads on the
      patrol's own pull requests, merge-ready pull requests in small
      independent repositories (merge them under **Merging**), authors silent
      for two weeks, issues, pull requests and Discussions whose last word is
@@ -600,7 +616,9 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - proactively repair other contributors' pull requests, push focused fixes to
   their exact writable PR branch, and respond to or resolve addressed review
   threads after verifying the changes;
-- submit evidence-backed PR reviews in the comment or request-changes state;
+- submit evidence-backed PR reviews in the approve, request-changes or
+  comment state that matches the verdict, and add or replace the verdict
+  label;
 - request reviewers on pull requests, and open issues that track a confirmed
   bug, a failing default-branch check or a runner fault;
 - rebase a pull request's writable head branch onto its current base to
@@ -614,10 +632,55 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - review and approve pending GitHub Actions runs for the current pull-request
   head, and rerun CI after a verified transient failure as described below.
 
-The patrol never submits an approving review; the approval and the merge stay
-with a maintainer. Record which revision the patrol authored. The patrol still
-reviews that revision and publishes its findings as a comment review in the
-same run, and states that the head needs a maintainer's approval.
+### Review verdicts
+
+Every review of a pull request head ends in one verdict, stated three ways:
+
+- **approve**: the head is ready for a maintainer to merge. Every finding of
+  this review is fixed, no review thread is open, the branch is up to date or
+  free of conflicts, and every check on the head is green or its failure is
+  shown to come from outside the change (name the check and the base-branch or
+  runner fault, with its link).
+- **request changes**: a blocking problem remains, such as a confirmed bug not
+  yet fixed on the branch, a check the change breaks, a needed split, or a CI
+  run the patrol judged unsafe to approve.
+- **discussion**: an open question the patrol cannot settle from the code and
+  has asked the author or a maintainer about.
+
+1. The first line of the review body states the verdict and whether the head
+   is ready to be merged: `Verdict: approve — ready to merge`,
+   `Verdict: request changes — not ready to merge` or
+   `Verdict: discussion — not ready to merge`. When it is not ready, the next
+   lines list what still has to happen before it is, and which of it the
+   patrol fixes itself.
+2. The review's GitHub state matches: `gh pr review --approve`,
+   `--request-changes` or `--comment`. GitHub refuses approve and
+   request-changes from a pull request's own author, so on pull requests
+   opened from `yunwei37` (the account the patrol posts as) the review is a
+   comment review whose first line still says whether the head is ready to be
+   merged, and the label carries the verdict. An approval from the
+   patrol counts toward the base branch's required approvals; the merge stays
+   with a maintainer (outside **Merging**).
+3. The pull request carries exactly one label `AI review: approve`,
+   `AI review: changes requested` or `AI review: discussion` (create a
+   missing label in the repository). When the head changes, remove the label
+   until the new head is reviewed, so the label always speaks for the head the
+   patrol last reviewed.
+
+A pull request the patrol found not ready to be merged is fixed by the next
+run at the latest (the worklist lists it as `pr_not_ready`). That run works
+every item the verdict listed: it pushes forward-only commits to the head
+branch when it is writable, otherwise opens a linked follow-up pull request
+that keeps the author's commits; it rebases, repairs CI, splits, and
+implements what an answered discussion settled. Then it reviews the new head
+and states the new verdict. What stays is only what the patrol cannot reach
+(exclusive hardware, a private credential, an author's or maintainer's answer
+to a question still open), and the review names it.
+
+A later review of the same head that changes the verdict replaces the label
+and, for another author's pull request, submits the new state; a fix the
+patrol pushed is reviewed again as a new head. Record which revision the
+patrol authored; it reviews that revision like any other.
 
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
@@ -776,8 +839,10 @@ request in the same run when all of these hold:
   its head passed, the patrol's published review of that head found nothing
   blocking, no review thread is unresolved, and no maintainer has requested
   changes or asked to wait;
-- the merge needs no administrator bypass of branch protection. When
-  protection requires an approving review, the pull request goes to a
+- the merge needs no administrator bypass of branch protection. The patrol's
+  own approving review (**Review verdicts**) counts toward a required
+  approval on another author's pull request; when protection still requires
+  one, as on the patrol's own pull requests, the pull request goes to a
   maintainer.
 
 Merge with the method the repository's history uses (squash when the history
