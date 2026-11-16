@@ -41,6 +41,12 @@ Operator, 2026-11-15, verbatim:
 
 > “为啥最新的 review 还是没有结论? 是不是要求每一个巡检的 comment 要包含有个 结论: 说是不是可以合并, 是不是需要修, 还是不建议合并, 还是设计有问题之类的, 或者等 ci 好了可以合并之类的?”
 
+> “以后自动修”
+
+Operator, 2026-11-16, verbatim, on bpftime's CI queue:
+
+> “每隔 3 小时看看, 直到正常”
+
 This rule comes first; every other passage of this skill applies it.
 
 - Maintain the community fully automatically. Every action that is neither
@@ -183,8 +189,16 @@ another passage reads differently, these sections apply.
   hardware fault outside the patrol's reach gets a tracking issue that names
   the machine, the evidence and what has to happen on it.
 - The patrol owns rebasing. Every pull request the worklist lists as
-  conflicting (`pr_conflicting`) or behind its base (`pr_behind_base`) is
-  rebased onto its current base in the run that sees it, when the head branch
+  conflicting (`pr_conflicting`) is rebased onto its current base in the run
+  that sees it, and so is a pull request behind its base whose verdict is
+  ready to merge (`pr_behind_base`), so that a maintainer merges it on a
+  current base. A pull request that is only behind its base, without
+  conflicts and not yet ready to merge, is left as it is
+  (`pr_behind_base_waiting`, INFO): GitHub merges it without a rebase, and
+  every rebase reruns its whole CI (in bpftime about 13 workflows, 148 of
+  them example jobs). On 2026-11-16 rebasing every behind-base pull request
+  after each merge to master created about 550 runs in three hours, and no
+  pull request's CI could finish. Rebase when the head branch
   is writable (the patrol's own branches, branches in `eunomia-bpf`, fork
   branches that allow maintainer edits). Without conflicts, use GitHub's
   rebase update (`gh pr update-branch <number> --rebase -R eunomia-bpf/<repo>`).
@@ -274,7 +288,8 @@ priority item.
      operator's latest comments on closed issues and pull requests (an
      unmarked `yunwei37` comment after a merge or close, often a follow-up
      request), failing default branches, failing pull request CI, conflicting pull requests,
-     pull requests behind their base (rebase them), workflow runs waiting for
+     pull requests ready to merge but behind their base (rebase them),
+     workflow runs waiting for
      approval, runs queued for over six hours (missing or offline runner
      capacity), offline self-hosted runners, workflows GitHub disabled for
      inactivity, secret, code and dependency alerts, reported bugs with

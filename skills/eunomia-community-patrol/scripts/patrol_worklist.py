@@ -133,6 +133,7 @@ CATEGORIES = [
     ("discussion_unanswered", "WARN"),
     ("site_broken", "WARN"),
     ("pr_ready_for_maintainer", "INFO"),
+    ("pr_behind_base_waiting", "INFO"),
     ("bug_fixed_awaiting_close", "INFO"),
     ("release_pending", "INFO"),
     ("workflows_disabled_manually", "INFO"),
@@ -456,6 +457,7 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
             "conflicting": pr["mergeable"] == "CONFLICTING",
             "writable": not pr["isCrossRepository"] or pr["maintainerCanModify"],
             "merge_block": merge_block,
+            "approved": approved and not pr["isDraft"],
             "ready": (not pr["isDraft"] and pr["mergeable"] == "MERGEABLE"
                       and state == "SUCCESS" and approved and not open_threads)})
 
@@ -740,7 +742,10 @@ def main():
                 unavailable["pull_request_compare"].append(p["repo"])
             continue
         if count > 0 and not p["conflicting"]:
-            out["pr_behind_base"].append(dict(
+            # Only a pull request ready to merge is rebased when it is
+            # merely behind: each rebase reruns its whole CI (SKILL.md).
+            key = "pr_behind_base" if p["approved"] else "pr_behind_base_waiting"
+            out[key].append(dict(
                 p["item"], behind_by=count, writable=p["writable"],
                 detail=f"{count} commits behind {p['base']}"
                        + ("" if p["writable"] else ", branch not writable")))
