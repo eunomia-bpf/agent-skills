@@ -326,11 +326,19 @@ def by_operator(node, patrol):
     return login(node) == patrol and not by_patrol(node, patrol)
 
 
+def is_bot(node):
+    """A machine wrote it: nothing waits for the patrol in a deploy or report
+    comment, and the Cloudflare/Vercel and report bots post on every run."""
+    return (login(node) or "").endswith("[bot]")
+
+
 def needs_reply(author, last, patrol):
     """True when the latest comment waits for the patrol: the operator wrote
     it, or someone other than a maintainer did, or the item's own author did.
-    The patrol never answers its own comment."""
+    The patrol never answers its own comment or a bot's."""
     if not last or not last.get("author") or by_patrol(last, patrol):
+        return False
+    if is_bot(last):
         return False
     if by_operator(last, patrol):
         return True
