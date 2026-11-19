@@ -636,7 +636,8 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - update maintenance branches and pull requests created or owned by the task;
 - proactively repair other contributors' pull requests, push focused fixes to
   their exact writable PR branch, and respond to or resolve addressed review
-  threads after verifying the changes;
+  threads after verifying the changes, within **Keep the author's
+  implementation**;
 - submit evidence-backed PR reviews in the approve, request-changes or
   comment state that matches the verdict, and add or replace the
   `AI review:` verdict label;
@@ -693,8 +694,10 @@ A pull request the patrol found not ready to be merged is fixed by the next
 run at the latest (the worklist lists it as `pr_not_ready`). That run works
 every item the verdict listed: it pushes forward-only commits to the head
 branch when it is writable, otherwise opens a linked follow-up pull request
-that keeps the author's commits; it rebases, repairs CI, splits or reworks a
-design problem, and implements what an answered discussion settled. A head
+that keeps the author's commits; it rebases, repairs CI and makes the focused
+corrections the review named, all within **Keep the author's implementation**:
+a design problem, a split or a rework of the implementation goes back to the
+author in the review and is never done on the author's branch. A head
 marked ready once CI is green gets the CI result read in that run: green turns
 the verdict into ready to merge, red is fixed. Then it reviews the new head
 and states the new verdict. What stays is only what the patrol cannot reach
@@ -710,6 +713,30 @@ patrol authored; it reviews that revision like any other.
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing assignees or milestones.
+
+### Keep the author's implementation
+
+Operator, 2026-11-19, verbatim:
+
+> “我觉得巡检需要记住, 禁止大规模改写这个 PR 本身的内容, 尤其是不允许直接删除大部分的实现, 也不应该大量修改核心的 PR 实现? 尤其是贡献者的. 你看看 bpftime 上面是不是有些 PR 有类似的问题, 要求立刻改正并且回到原先贡献者写的状态. 以后也要记住”
+
+1. Never rewrite a pull request's own content on a large scale: never delete
+   most of its implementation, and never change much of its core
+   implementation. This holds above all for another contributor's pull
+   request.
+2. On a pull request the patrol did not write, what it pushes is limited to a
+   rebase that keeps the author's code, conflict resolution, CI and test
+   repairs, and small focused corrections of a finding its review named. The
+   author's implementation stays as the author wrote it.
+3. When the implementation itself needs a large change (a design problem, a
+   rewrite, a split, removing most of it), the review says so and the change
+   stays with the author. If the patrol wants to show another version, it
+   opens its own pull request and links it, and leaves the author's branch as
+   it was.
+4. A pull request whose implementation the patrol already rewrote this way is
+   returned in the next run to the author's last own head (rebased only when
+   needed, without changing the author's code), with a comment that says what
+   was restored and why.
 
 ### GitHub Actions approval and CI follow-up
 
