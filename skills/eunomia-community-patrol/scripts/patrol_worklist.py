@@ -65,8 +65,11 @@ FIRST_TIMER = {"FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER"}
 # Every patrol comment opens with "Verdict: ..." (SKILL.md, Review verdicts),
 # and a reviewed pull request carries exactly one of these labels. Comments
 # posted before the rule (2026-11-15) are left as they are.
+# The verdict line is the table's line, then optionally " — reason"; the
+# longer phrase is tested first where both could match.
 VERDICT = "Verdict:"
 READY = "Verdict: ready to merge"
+READY_CI = "Verdict: ready to merge once CI is green"
 VERDICT_SINCE = "2026-11-15T00:00:00Z"
 READY_LABEL = "AI review: ready to merge"
 NOT_READY_LABELS = {"AI review: merge after CI", "AI review: needs fixes",
@@ -78,6 +81,17 @@ VERDICT_LABELS = NOT_READY_LABELS | {READY_LABEL}
 def first_line(node):
     lines = ((node or {}).get("body") or "").strip().splitlines()
     return lines[0].strip() if lines else ""
+
+
+def is_ready(node):
+    """The first line states ready to merge, with or without a reason.
+
+    "ready to merge once CI is green" means the opposite for merging —
+    checks are still running — and shares the prefix, so it is excluded.
+    """
+    line = first_line(node)
+    return (line == READY or line.startswith(READY + " ")) \
+        and not (line == READY_CI or line.startswith(READY_CI + " "))
 
 
 def verdict_missing(node, patrol):
@@ -413,13 +427,13 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         # A pull request the patrol found not ready to be merged is the next
         # run's fix (SKILL.md, Review verdicts).
         if (labels & NOT_READY_LABELS
-                or (standing is not None and first_line(standing) != READY)):
+                or (standing is not None and not is_ready(standing))):
             body = ((standing or {}).get("body") or "").strip().splitlines()
             todo = " ".join(" ".join(body[1:]).split())[:160]
             first = first_line(standing) or ", ".join(sorted(labels & NOT_READY_LABELS))
             out["pr_not_ready"].append(
                 dict(item, detail=first + ("; " + todo if todo else "")))
-        approved = (bool(head_reviews) and first_line(head_reviews[-1]) == READY
+        approved = (bool(head_reviews) and is_ready(head_reviews[-1])
                     and READY_LABEL in labels and not labels & NOT_READY_LABELS)
         if not head_reviews:
             out["pr_needs_review"].append(item)
