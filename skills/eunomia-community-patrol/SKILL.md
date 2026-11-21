@@ -1,6 +1,6 @@
 ---
 name: eunomia-community-patrol
-description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, rebase and proactively repair contributor pull requests through review and CI readiness, and merge normal pull requests in small independent repositories, while leaving every other merge and every destructive or privileged action to a maintainer.
+description: Inspect, triage, and actively maintain all open GitHub issues and pull requests across public, non-archived, non-fork eunomia-bpf repositories. Use for recurring Eunomia community patrols, organization-wide issue and PR sweeps, follow-up of prior maintenance comments or pull requests, and scheduled maintenance that may comment, fix verified bugs, push, open pull requests, review contributor pull requests (changing another author's pull request only when its author or a human maintainer asks), and merge normal pull requests in small independent repositories, while leaving every other merge and every destructive or privileged action to a maintainer.
 ---
 
 # Eunomia Community Patrol
@@ -176,19 +176,25 @@ another passage reads differently, these sections apply.
   code runs on a machine the project owns. When a run is unsafe, publish why on
   the pull request.
 - When a pull request's CI fails, fix it in the run that first sees the failure:
-  diagnose it from the job log, publish the diagnosis, and push the fix as a
-  forward-only commit on the PR branch when it is writable, otherwise in a
-  follow-up pull request. The patrol runs every hour so that a red check is
-  repaired within the hour.
+  diagnose it from the job log, publish the diagnosis, and on a pull request
+  of `yunwei37` push the fix as a forward-only commit on its branch. On
+  another author's pull request the diagnosis and the fix go into the review,
+  and onto its branch only as **Other authors' pull requests: review only**
+  allows. The patrol runs every hour so that a red check is diagnosed within
+  the hour.
 - When a pull request's author has not responded for more than two weeks,
-  implement what the pull request still needs (review findings, missing code,
-  tests, conflicts) the same way, keeping the author's commits and crediting
-  them in a replacement pull request.
+  the patrol may implement what the pull request still needs (review
+  findings, missing code, tests, conflicts) in a replacement pull request of
+  its own that keeps the author's commits, credits them and links theirs;
+  the author's branch stays as they left it.
 - A failing check on a default branch is a bug the patrol fixes: diagnose it
   from its own job log and open a fix pull request in the same run. A runner or
   hardware fault outside the patrol's reach gets a tracking issue that names
   the machine, the evidence and what has to happen on it.
-- The patrol owns rebasing. Every pull request the worklist lists as
+- The patrol owns rebasing of `yunwei37`'s pull requests. Another author's
+  pull request is rebased only when **Other authors' pull requests: review
+  only** allows it; otherwise its review says that it conflicts or is behind.
+  Every such pull request the worklist lists as
   conflicting (`pr_conflicting`) is rebased onto its current base in the run
   that sees it, and so is a pull request behind its base whose verdict is
   ready to merge (`pr_behind_base`), so that a maintainer merges it on a
@@ -411,12 +417,12 @@ relevant thread or comment. Continue tracking until the pull request is ready
 for a maintainer to merge, explicitly rejected or closed, or blocked only by a
 maintainer, reviewer, reporter, runner, or external infrastructure.
 
-This applies equally to pull requests opened by the user and by other
-contributors. When their CI failure is caused by the proposed code and the fix
-is clear, implement and validate the repair, then push a focused forward-only
-commit directly to the existing PR head branch when it is writable; do not stop
-at describing the patch or asking the author to make a change the patrol can
-already make safely.
+On a pull request of `yunwei37`, when its CI failure is caused by the proposed
+code and the fix is clear, implement and validate the repair, then push a
+focused forward-only commit to its head branch. On another author's pull
+request, validate the same repair and put it in the review as a suggested
+change or a linked pull request of the patrol's own; it reaches their branch
+only as **Other authors' pull requests: review only** allows.
 
 Before reporting a failing workflow as fixed, walk the entire job to its end
 rather than stopping at the first error you reproduced. A job commonly has
@@ -634,16 +640,16 @@ Without per-item confirmation, for pull requests and issues in `eunomia-bpf`
 - address clear review or automated-review feedback, push corrections, and
   reply with the result;
 - update maintenance branches and pull requests created or owned by the task;
-- proactively repair other contributors' pull requests, push focused fixes to
-  their exact writable PR branch, and respond to or resolve addressed review
-  threads after verifying the changes, within **Keep the author's
-  implementation**;
+- review other contributors' pull requests and push to their branch only as
+  **Other authors' pull requests: review only** allows, and respond to or
+  resolve addressed review threads after verifying the changes;
 - submit evidence-backed PR reviews in the approve, request-changes or
   comment state that matches the verdict, and add or replace the
   `AI review:` verdict label;
 - request reviewers on pull requests, and open issues that track a confirmed
   bug, a failing default-branch check or a runner fault;
-- rebase a pull request's writable head branch onto its current base to
+- rebase a pull request of `yunwei37` (or another author's, only as **Other
+  authors' pull requests: review only** allows) onto its current base to
   resolve conflicts or staleness, pushing only that branch with
   `--force-with-lease`, and cancel the workflow runs of the head it replaced;
 - open dependency-upgrade pull requests, and answer GitHub Discussions;
@@ -692,12 +698,13 @@ verdict on the head the comment speaks about, one of six:
 
 A pull request the patrol found not ready to be merged is fixed by the next
 run at the latest (the worklist lists it as `pr_not_ready`). That run works
-every item the verdict listed: it pushes forward-only commits to the head
-branch when it is writable, otherwise opens a linked follow-up pull request
-that keeps the author's commits; it rebases, repairs CI and makes the focused
-corrections the review named, all within **Keep the author's implementation**:
-a design problem, a split or a rework of the implementation goes back to the
-author in the review and is never done on the author's branch. A head
+every item the verdict listed. On a pull request of `yunwei37` it pushes
+forward-only commits to the head branch: it rebases, repairs CI and makes the
+focused corrections the review named, without leaving what the pull request
+set out to do. On another author's pull request the review names each item
+for the author, and the patrol pushes only as **Other authors' pull requests:
+review only** allows. A design problem, a split or a rework of the
+implementation always goes back to the author in the review. A head
 marked ready once CI is green gets the CI result read in that run: green turns
 the verdict into ready to merge, red is fixed. Then it reviews the new head
 and states the new verdict. What stays is only what the patrol cannot reach
@@ -714,29 +721,43 @@ Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing assignees or milestones.
 
-### Keep the author's implementation
+### Other authors' pull requests: review only
 
 Operator, 2026-11-19, verbatim:
 
 > “我觉得巡检需要记住, 禁止大规模改写这个 PR 本身的内容, 尤其是不允许直接删除大部分的实现, 也不应该大量修改核心的 PR 实现? 尤其是贡献者的. 你看看 bpftime 上面是不是有些 PR 有类似的问题, 要求立刻改正并且回到原先贡献者写的状态. 以后也要记住”
 
-1. Never rewrite a pull request's own content on a large scale: never delete
-   most of its implementation, and never change much of its core
-   implementation. This holds above all for another contributor's pull
-   request.
-2. On a pull request the patrol did not write, what it pushes is limited to a
-   rebase that keeps the author's code, conflict resolution, CI and test
-   repairs, and small focused corrections of a finding its review named. The
-   author's implementation stays as the author wrote it.
-3. When the implementation itself needs a large change (a design problem, a
-   rewrite, a split, removing most of it), the review says so and the change
-   stays with the author. If the patrol wants to show another version, it
-   opens its own pull request and links it, and leaves the author's branch as
-   it was.
-4. A pull request whose implementation the patrol already rewrote this way is
-   returned in the next run to the author's last own head (rebased only when
-   needed, without changing the author's code), with a comment that says what
-   was restored and why.
+Operator, in the bpftime contributors' chat quoted on 2026-11-21, verbatim:
+
+> “改成除非 pr 作者或者人类明确要求不然不应该改动吧？”
+
+and “好” to a contributor's proposal in the same chat:
+
+> “我觉得默认只review，有明确授权的情况下再改动吧” “对所有PR都这样”
+
+Operator, 2026-11-21, verbatim:
+
+> “如果是 yunwei37 自己的 PR 可以改, 但是不能偏离原本的 PR 的内容.”
+
+1. On a pull request whose author is not `yunwei37` (the account the patrol
+   posts as), the patrol only reviews: reviews, verdicts, labels, comments,
+   approving and rerunning its workflow runs. It pushes nothing to the
+   pull request's branch: no rebase, no merge of the base, no CI or test
+   repair, no fix. A fix the patrol has found goes into the review, as a
+   suggested change or as a linked pull request of the patrol's own.
+2. It changes another author's pull request only when that pull request's
+   author, or a human maintainer, asked for that change in the pull request,
+   and then only that change. A request from the patrol's own account or
+   from another agent is not one.
+3. On a pull request of `yunwei37` it may push, but never away from what the
+   pull request set out to do: never rewrite its content on a large scale,
+   never delete most of its implementation, never change much of its core
+   implementation.
+4. A pull request the patrol changed against these rules is returned in the
+   next run to the author's last own head, without rebasing it, with a comment
+   that says what was restored and why.
+5. This section overrides every other passage of this skill that lets the
+   patrol push to, rebase, merge into or repair another author's pull request.
 
 ### GitHub Actions approval and CI follow-up
 
@@ -840,9 +861,11 @@ in the change, and it can persist across retries and even reproduce only on the
 newer revision. Repeat the build with a fresh cache directory before drawing a
 conclusion, and confirm that the unmodified base builds with the same cache.
 
-For someone else's PR, preserve its intended behavior and contributor work.
-Refresh the current head and coordinate with any active work before pushing
-focused, forward-only commits to that exact writable branch. This includes a
+For someone else's PR, preserve its intended behavior and contributor work,
+and push nothing unless **Other authors' pull requests: review only** allows
+it. When it does, refresh the current head and coordinate with any active
+work before pushing focused, forward-only commits to that exact writable
+branch. This includes a
 fork branch only when it is the head of an open PR targeting `eunomia-bpf`;
 it does not authorize unrelated writes in the fork. If the branch is not
 writable, prepare and validate the fix on a task-owned branch in the target
@@ -955,13 +978,14 @@ mark.
 - Anything destructive or privileged in the sense of the meta rule.
 - Force-push or rewrite history on any branch, except the rebase of a pull
   request's head branch onto its base described in the Highest Priority
-  section; never on a default or release branch or a tag.
+  section, within **Other authors' pull requests: review only**; never on a
+  default or release branch or a tag.
 - Close another author's issue or pull request; label it instead.
 - Delete a branch.
 - Change access permissions, organization or repository settings, branch
   protection, secrets, webhooks, runners, or deployment configuration.
 - Write outside `eunomia-bpf` except for focused commits to the exact writable
-  contributor PR branch allowed above.
+  contributor PR branch that its author or a human maintainer asked for.
 - Expose credentials, tokens, private logs, or sensitive environment details in
   GitHub content, commits, branch names, pull request text, or reports.
 
