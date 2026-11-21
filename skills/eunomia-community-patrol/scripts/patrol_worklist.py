@@ -215,9 +215,9 @@ query($org: String!, $repo: String!, $after: String) {
           comments(last: 1) { nodes { author { login } body } } } }
         commits(last: 1) { nodes { commit {
           committedDate statusCheckRollup { state } } } }
-        comments(last: 30) { nodes { author { login } authorAssociation createdAt } }
+        comments(last: 30) { nodes { author { __typename login } authorAssociation createdAt } }
         lastComment: comments(last: 1) { nodes {
-          author { login } authorAssociation body createdAt } }
+          author { __typename login } authorAssociation body createdAt } }
       }
     }
   }
@@ -230,13 +230,13 @@ query($org: String!, $repo: String!, $after: String) {
       pageInfo { hasNextPage endCursor }
       nodes {
         number title url createdAt updatedAt
-        author { login } authorAssociation
+        author { __typename login } authorAssociation
         labels(first: 20) { nodes { name } }
         closedByPullRequestsReferences(first: 5, includeClosedPrs: true) {
           nodes { number state }
         }
         lastComment: comments(last: 1) { nodes {
-          author { login } authorAssociation body createdAt } }
+          author { __typename login } authorAssociation body createdAt } }
       }
     }
   }
@@ -328,8 +328,11 @@ def by_operator(node, patrol):
 
 def is_bot(node):
     """A machine wrote it: nothing waits for the patrol in a deploy or report
-    comment, and the Cloudflare/Vercel and report bots post on every run."""
-    return (login(node) or "").endswith("[bot]")
+    comment, and the Cloudflare/Vercel and report bots post on every run. A
+    GitHub App's login carries no `[bot]` suffix (the scheduled org report
+    posts as `github-actions`), so the GraphQL typename decides too."""
+    author = node.get("author") or {}
+    return (login(node) or "").endswith("[bot]") or author.get("__typename") == "Bot"
 
 
 def needs_reply(author, last, patrol):
@@ -483,8 +486,14 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         if not labels:
             out["issue_unlabeled"].append(item)
         last = (issue["lastComment"]["nodes"] or [None])[0]
-        if (needs_reply(author, last, patrol) if last
-                else issue["authorAssociation"] not in MAINTAINER):
+        # An issue a bot opened and nobody answered waits for nobody: the
+        # scheduled weekly org report would otherwise be its own WARN item
+        # forever. A human's later comment still reaches needs_reply.
+        if last:
+            waiting = needs_reply(author, last, patrol)
+        else:
+            waiting = issue["authorAssociation"] not in MAINTAINER and not is_bot(issue)
+        if waiting:
             out["issue_awaiting_reply"].append(item)
         if verdict_missing(last, patrol):
             out["issue_verdict_missing"].append(item)
