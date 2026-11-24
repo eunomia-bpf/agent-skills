@@ -465,7 +465,12 @@ def scan_repo(org, repo, patrol, now, merge_block, growth):
         if author != patrol and now - max(author_times) > dt.timedelta(days=14):
             out["pr_author_silent_14d"].append(
                 dict(item, silent_days=(now - max(author_times)).days))
-        if needs_reply(author, (pr["lastComment"]["nodes"] or [None])[0], patrol):
+        # The patrol's last word includes reviews: a PR whose last activity
+        # is a patrol review submitted after the last comment needs no reply.
+        patrol_last = [r for r in patrol_reviews
+                       if (r.get("submittedAt") or "")
+                       >= ((last or {}).get("createdAt") or "")]
+        if not patrol_last and needs_reply(author, last, patrol):
             out["pr_awaiting_reply"].append(item)
         open_threads = [t for t in pr["reviewThreads"]["nodes"] if not t["isResolved"]]
         # On the shared account's pull requests every thread is the patrol's
