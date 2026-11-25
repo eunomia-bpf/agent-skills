@@ -669,7 +669,7 @@ verdict on the head the comment speaks about, one of six:
 | --- | --- | --- | --- |
 | `Verdict: ready to merge` | every finding fixed, no open review thread, branch up to date or free of conflicts, every check green or its failure shown to come from outside the change (name the check and the base-branch or runner fault, with its link) | approve | `AI review: ready to merge` |
 | `Verdict: ready to merge once CI is green` | the code is ready and checks on the head are still queued or running | comment | `AI review: merge after CI` |
-| `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict | request changes | `AI review: needs fixes` |
+| `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict, a bpftime pull request without a benchmark or a performance impact analysis (**bpftime: benchmark and performance impact**) | request changes | `AI review: needs fixes` |
 | `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is | request changes | `AI review: design problem` |
 | `Verdict: not recommended to merge` | superseded, duplicate, obsolete or out of scope; name the pull request or commit that replaces it | request changes | `AI review: not recommended` |
 | `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer | comment | `AI review: discussion` |
@@ -720,6 +720,45 @@ patrol authored; it reviews that revision like any other.
 Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing assignees or milestones.
+
+### bpftime: benchmark and performance impact
+
+Operator, 2026-11-25, verbatim:
+
+> “以后要求规定一下 bpftime 所有都要带 benchmark 和性能影响分析? 是不是在 PR template 里面说?”
+
+> “巡检要把它当成门槛： 不带 benchmark 和影响分析的 PR，巡检直接给 needs fixes。巡检的规则文件在巡检 Workspace 里，归父会话管，我没有改。去做”
+
+1. Every pull request in `eunomia-bpf/bpftime`, from any author, carries a
+   benchmark and a performance impact analysis in its description: the
+   "Benchmark and performance impact" section of bpftime's pull request
+   template, or the same content under another heading.
+2. A head whose description lacks either one gets `Verdict: needs fixes — not
+   ready to merge`, whatever else the review finds, and the review names what
+   is missing. The gate holds for every open bpftime pull request, including
+   ones whose standing verdict predates this rule: the next run reviews each
+   of them again against it.
+3. The benchmark compares master with the change on the same machine and
+   build options, and names the command and the machine; a change that
+   touches a lock or other shared state also has a run with several threads
+   or processes. The absolute numbers of bpftime's CI `Benchmarks` workflow
+   against its master baseline do not count, because each build runs on a
+   different runner (on 2026-11-25 pull requests that did not touch the
+   runtime measured `syscall/native` up to 571% off the baseline).
+4. The analysis names the hot paths the change touches (uprobe and syscall
+   callbacks, BPF helpers, map, ring buffer and perf event operations,
+   attach and detach, agent startup under `LD_PRELOAD`) and what it adds or
+   removes there: instructions, atomics, locks, allocations, syscalls. A
+   change to no compiled code or build input fills both in as well: the
+   analysis names the paths it checked and why they are unaffected, and the
+   benchmark entry says that no compiled code changed.
+5. The review reads the numbers against the diff and states in the review
+   what they show. A hot path the diff changes that the benchmark does not
+   measure counts as a missing benchmark under point 2.
+6. On a pull request of `yunwei37` the patrol may measure and add the
+   missing benchmark or analysis itself, as one of the fixes the review
+   named. On another author's pull request the review asks the author for
+   them, as **Other authors' pull requests: review only** requires.
 
 ### Other authors' pull requests: review only
 
