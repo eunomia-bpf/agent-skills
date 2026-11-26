@@ -796,9 +796,19 @@ Operator, 2026-11-26, verbatim, later the same day:
    "Option for the maintainers", never as a numbered fix, and the verdict
    does not depend on it. Once a maintainer chooses an option, the choice is
    recorded in `DECISIONS.md` before code follows it.
-5. The `LD_PRELOAD` agent and shim run no background thread and never block
-   or wait. A head that adds either to the injected path is a design problem
-   under point 1 (entry of 2026-11-26).
+5. Safety principles for the `LD_PRELOAD` agent (entries of 2026-11-26). A
+   head that adds any of the following to code that runs in the injected
+   agent is a design problem under point 1, and the review names the line:
+   a lock outside a limited set of fork-safe lock mechanisms; anything that
+   can throw an error into the host or make it stop; a background thread;
+   any waiting or blocking; any signal mechanism. The syscall server is out
+   of scope.
+
+   Operator, 2026-11-26, verbatim:
+
+   > “大概就是我觉得 LD PRELOAD 里面有一些安全原则最好要遵守, 比如说 lock 必须只有有限的, fork 安全的 lock 机制; 不要任何可能会抛出错误或者导致宿主停下来的情况; 不要任何后台线程, 不要任何等待或者 block; 不要任何信号机制 这些也要记录进去”
+
+   > “syscall server 没关系; 记录我的原话”
 6. These points apply to every open bpftime pull request, including ones
    whose standing verdict predates them: the next run reviews each again
    against them.
