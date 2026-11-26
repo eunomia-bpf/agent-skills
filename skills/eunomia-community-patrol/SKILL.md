@@ -670,9 +670,9 @@ verdict on the head the comment speaks about, one of six:
 | `Verdict: ready to merge` | every finding fixed, no open review thread, branch up to date or free of conflicts, every check green or its failure shown to come from outside the change (name the check and the base-branch or runner fault, with its link) | approve | `AI review: ready to merge` |
 | `Verdict: ready to merge once CI is green` | the code is ready and checks on the head are still queued or running | comment | `AI review: merge after CI` |
 | `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict, a bpftime pull request without a benchmark or a performance impact analysis (**bpftime: benchmark and performance impact**) | request changes | `AI review: needs fixes` |
-| `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is, a bpftime pull request that reverses a recorded maintainer decision (**bpftime: maintainer decisions and new mechanisms**) | request changes | `AI review: design problem` |
+| `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is, a bpftime pull request that reverses an entry in `DECISIONS.md` (**bpftime: maintainer decisions and new mechanisms**) | request changes | `AI review: design problem` |
 | `Verdict: not recommended to merge` | superseded, duplicate, obsolete or out of scope; name the pull request or commit that replaces it | request changes | `AI review: not recommended` |
-| `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer, a bpftime pull request that adds a new mechanism without an issue where a maintainer agreed | comment | `AI review: discussion` |
+| `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer, a bpftime pull request that adds a new mechanism without a maintainer's agreement in an issue or in a comment on the pull request | comment | `AI review: discussion` |
 
 1. The lines after the verdict say what still has to happen before the head
    can be merged and who does it; what the patrol can fix, it fixes (below).
@@ -767,29 +767,39 @@ Operator, 2026-11-26, verbatim:
 > “1. 在 CLAUDE.md 里记录维护者决定： 列一个带日期和 PR 链接的"Decisions"清单。推翻其中某条的 PR，在维护者重新决定之前一律算 design problem。
 > 2. 新机制先开 issue 谈好再写： 新的锁、共享内存布局、线程、构造函数、环境变量或协议，或者生产代码超过约 100 行，都先在 issue 里讨论。review 里提的替代设计标成"供维护者选择"，而不是要求作者修。 这条我自己先执行。你先把 skills 和流程搞好, issue 可以开. 删掉 auto-refresh 线程是必须删掉的, 不能后台线程, 不能任何 block 和等待再 shim”
 
+Operator, 2026-11-26, verbatim, later the same day:
+
+> “新机制没有附上维护者同意过的 issue，给 discussion。我自己在 comment 里面评论也行, 不一定是 issue.”
+
+> “Maintainer decisions 单独一个文件是不是更好? 你看看? 要记录原话”
+
 1. Every review of an `eunomia-bpf/bpftime` pull request checks it against
-   the "Maintainer decisions" list in `CLAUDE.md` on the pull request's base.
-   A head that reverses an entry gets `Verdict: design problem — not ready to
-   merge`, naming the entry, until a maintainer decides again. A new decision
-   counts only when it is recorded in that list with its date and the
-   maintainer's pull request or words. A decision the operator gives the
-   patrol directly is added to the list in a documentation pull request in
-   the same run.
-2. A head that adds a new mechanism without a linked issue where a maintainer
-   agreed to it gets `Verdict: discussion — not ready to merge`, and the
-   review asks for that issue. A new mechanism here means a new lock or other
-   synchronization primitive, a new shared-memory layout or attach path, a
-   new thread, constructor, environment variable or protocol, or more than
-   about 100 production lines. The patrol's own pull requests follow the same
-   rule: it opens the issue first.
-3. A review that suggests a design other than the author's writes it under
+   `DECISIONS.md` on the pull request's base (bpftime#950 moved the list out
+   of `CLAUDE.md` into that file). A head that reverses an entry gets
+   `Verdict: design problem — not ready to merge`, naming the entry, until a
+   maintainer decides again.
+2. A decision counts once `DECISIONS.md` records it with its date, its pull
+   requests, and the maintainer's words verbatim, quoted exactly as written,
+   never paraphrased or extended. A decision the operator gives the patrol
+   directly is added there in a documentation pull request in the same run,
+   with the operator's words copied verbatim. An entry is never edited to say
+   more than its maintainer said; superseding it adds a new entry.
+3. A head that adds a new mechanism without a maintainer's agreement gets
+   `Verdict: discussion — not ready to merge`, and the review asks for it. The
+   agreement is either an issue where a maintainer agreed or a maintainer's
+   comment on the pull request itself, and the pull request links it. A
+   new mechanism here means a new lock or other synchronization primitive, a
+   new shared-memory layout or attach path, a new thread, constructor,
+   environment variable or protocol, or more than about 100 production
+   lines. The patrol's own pull requests follow the same rule.
+4. A review that suggests a design other than the author's writes it under
    "Option for the maintainers", never as a numbered fix, and the verdict
    does not depend on it. Once a maintainer chooses an option, the choice is
-   recorded under "Maintainer decisions" before code follows it.
-4. The `LD_PRELOAD` agent and shim run no background thread and never block
-   or wait; a head that adds either to the injected path is a design problem
-   under point 1 (decision of 2026-11-26).
-5. These points apply to every open bpftime pull request, including ones
+   recorded in `DECISIONS.md` before code follows it.
+5. The `LD_PRELOAD` agent and shim run no background thread and never block
+   or wait. A head that adds either to the injected path is a design problem
+   under point 1 (entry of 2026-11-26).
+6. These points apply to every open bpftime pull request, including ones
    whose standing verdict predates them: the next run reviews each again
    against them.
 
