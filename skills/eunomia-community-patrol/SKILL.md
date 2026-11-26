@@ -669,10 +669,10 @@ verdict on the head the comment speaks about, one of six:
 | --- | --- | --- | --- |
 | `Verdict: ready to merge` | every finding fixed, no open review thread, branch up to date or free of conflicts, every check green or its failure shown to come from outside the change (name the check and the base-branch or runner fault, with its link) | approve | `AI review: ready to merge` |
 | `Verdict: ready to merge once CI is green` | the code is ready and checks on the head are still queued or running | comment | `AI review: merge after CI` |
-| `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict, a bpftime pull request without a benchmark or a performance impact analysis (**bpftime: benchmark and performance impact**) | request changes | `AI review: needs fixes` |
-| `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is, a bpftime pull request that reverses an entry in `DECISIONS.md` (**bpftime: maintainer decisions and new mechanisms**) | request changes | `AI review: design problem` |
+| `Verdict: needs fixes — not ready to merge` | a confirmed bug, a check the change breaks, a missing test, a conflict, a section the repository's pull request template requires left empty (**Repository rules**) | request changes | `AI review: needs fixes` |
+| `Verdict: design problem — not ready to merge` | the approach needs rework: a mixed change that needs splitting, a wrong layer, a behavior or API change the code cannot carry as is, a head that reverses an entry in the repository's decisions file or breaks one of its design rules (**Repository rules**) | request changes | `AI review: design problem` |
 | `Verdict: not recommended to merge` | superseded, duplicate, obsolete or out of scope; name the pull request or commit that replaces it | request changes | `AI review: not recommended` |
-| `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer, a bpftime pull request that adds a new mechanism without a maintainer's agreement in an issue or in a comment on the pull request | comment | `AI review: discussion` |
+| `Verdict: discussion — not ready to merge` | an open question the patrol cannot settle from the code and has asked the author or a maintainer, a mechanism the repository's rules require a maintainer's agreement for, without it (**Repository rules**) | comment | `AI review: discussion` |
 
 1. The lines after the verdict say what still has to happen before the head
    can be merged and who does it; what the patrol can fix, it fixes (below).
@@ -721,46 +721,13 @@ Before every write, verify scope, repository policy, and that the action is not
 a duplicate. Treat this list as exhaustive. Do not perform other writes such as
 changing assignees or milestones.
 
-### bpftime: benchmark and performance impact
+### Repository rules: decisions file, pull request template, contributor rules
 
 Operator, 2026-11-25, verbatim:
 
 > “以后要求规定一下 bpftime 所有都要带 benchmark 和性能影响分析? 是不是在 PR template 里面说?”
 
 > “巡检要把它当成门槛： 不带 benchmark 和影响分析的 PR，巡检直接给 needs fixes。巡检的规则文件在巡检 Workspace 里，归父会话管，我没有改。去做”
-
-1. Every pull request in `eunomia-bpf/bpftime`, from any author, carries a
-   benchmark and a performance impact analysis in its description: the
-   "Benchmark and performance impact" section of bpftime's pull request
-   template, or the same content under another heading.
-2. A head whose description lacks either one gets `Verdict: needs fixes — not
-   ready to merge`, whatever else the review finds, and the review names what
-   is missing. The gate holds for every open bpftime pull request, including
-   ones whose standing verdict predates this rule: the next run reviews each
-   of them again against it.
-3. The benchmark compares master with the change on the same machine and
-   build options, and names the command and the machine; a change that
-   touches a lock or other shared state also has a run with several threads
-   or processes. The absolute numbers of bpftime's CI `Benchmarks` workflow
-   against its master baseline do not count, because each build runs on a
-   different runner (on 2026-11-25 pull requests that did not touch the
-   runtime measured `syscall/native` up to 571% off the baseline).
-4. The analysis names the hot paths the change touches (uprobe and syscall
-   callbacks, BPF helpers, map, ring buffer and perf event operations,
-   attach and detach, agent startup under `LD_PRELOAD`) and what it adds or
-   removes there: instructions, atomics, locks, allocations, syscalls. A
-   change to no compiled code or build input fills both in as well: the
-   analysis names the paths it checked and why they are unaffected, and the
-   benchmark entry says that no compiled code changed.
-5. The review reads the numbers against the diff and states in the review
-   what they show. A hot path the diff changes that the benchmark does not
-   measure counts as a missing benchmark under point 2.
-6. On a pull request of `yunwei37` the patrol may measure and add the
-   missing benchmark or analysis itself, as one of the fixes the review
-   named. On another author's pull request the review asks the author for
-   them, as **Other authors' pull requests: review only** requires.
-
-### bpftime: maintainer decisions and new mechanisms
 
 Operator, 2026-11-26, verbatim:
 
@@ -773,60 +740,59 @@ Operator, 2026-11-26, verbatim, later the same day:
 
 > “Maintainer decisions 单独一个文件是不是更好? 你看看? 要记录原话”
 
-1. Every review of an `eunomia-bpf/bpftime` pull request checks it against
-   `DECISIONS.md` on the pull request's base (bpftime#950 moved the list out
-   of `CLAUDE.md` into that file). A head that reverses an entry gets
-   `Verdict: design problem — not ready to merge`, naming the entry, until a
-   maintainer decides again.
-2. A decision counts once `DECISIONS.md` records it with its date, its pull
-   requests, and the maintainer's words verbatim, quoted exactly as written,
-   never paraphrased or extended. A decision the operator gives the patrol
-   directly is added there in a documentation pull request in the same run,
-   with the operator's words copied verbatim. An entry is never edited to say
-   more than its maintainer said; superseding it adds a new entry.
-3. A head that adds a new mechanism without a maintainer's agreement gets
-   `Verdict: discussion — not ready to merge`, and the review asks for it. The
-   agreement is either an issue where a maintainer agreed or a maintainer's
-   comment on the pull request itself, and the pull request links it. A
-   new mechanism here means a new lock or other synchronization primitive, a
-   new shared-memory layout or attach path, a new thread, constructor,
-   environment variable or protocol, or more than about 100 production
-   lines. The patrol's own pull requests follow the same rule.
-4. A review that suggests a design other than the author's writes it under
-   "Option for the maintainers", never as a numbered fix, and the verdict
-   does not depend on it. Once a maintainer chooses an option, the choice is
-   recorded in `DECISIONS.md` before code follows it.
-5. Safety principles for the `LD_PRELOAD` agent (entries of 2026-11-26). A
-   head that adds any of the following to code that runs in the injected
-   agent is a design problem under point 1, and the review names the line.
-   The syscall server is out of scope.
-   - a lock other than lock-free atomics or fixed arrays and glibc robust
-     mutexes, or a hot-path lock taken without `trylock` (a held lock
-     skips the event and counts it, never waits);
-   - an exception that can leave a hook entry or `extern "C"` boundary, or
-     any `abort`, `exit`, `assert` or `std::terminate`;
-   - a background thread that is not behind an optional compile-time flag;
-   - any sleep, poll, join, `waitpid` or blocking lock, except a blocking
-     call the host itself made, which waits only as long as the host asked;
-   - installing or replacing a signal handler, sending a signal or changing
-     a signal mask (`kill(pid, 0)` liveness probes do not count). The trap
-     uprobe backend (`SIGTRAP`, where Frida is unavailable) is the one
-     exception.
+Operator, 2026-11-26, verbatim:
 
-   Operator, 2026-11-26, verbatim:
+> “大概就是我觉得 LD PRELOAD 里面有一些安全原则最好要遵守, 比如说 lock 必须只有有限的, fork 安全的 lock 机制; 不要任何可能会抛出错误或者导致宿主停下来的情况; 不要任何后台线程, 不要任何等待或者 block; 不要任何信号机制 这些也要记录进去”
 
-   > “大概就是我觉得 LD PRELOAD 里面有一些安全原则最好要遵守, 比如说 lock 必须只有有限的, fork 安全的 lock 机制; 不要任何可能会抛出错误或者导致宿主停下来的情况; 不要任何后台线程, 不要任何等待或者 block; 不要任何信号机制 这些也要记录进去”
+> “syscall server 没关系; 记录我的原话”
 
-   > “syscall server 没关系; 记录我的原话”
+> “锁： 只允许两类：
+> * 无锁原子操作或固定数组；
+> * 跨进程用 glibc robust mutex（11-25 已决定）。关键一点：mutex 被别人持有时 lock() 本身就会阻塞，robust 只管持有者死掉的情况；持有者被 SIGSTOP 或调试器停住时，所有进程都会一直等。所以热路径上应该用 trylock，拿不到就跳过这次事件并计数，不等待。这样第 1 条和第 4 条才不打架。不让宿主出错或停下： 所有 hook 入口和 `extern "C"` 边界都要捕获所有异常；注入代码里不出现 `abort`、`exit`、`assert`、`std::terminate`。这条和 CLAUDE.md 现有的第 1 条不变量一致，只是说得更死。
+> 后台线程可以在编译 flag 里面可选不等待、不阻塞： bpftime 自己不 sleep、不轮询、不 join、不 waitpid，也不用阻塞式的锁。唯一例外是宿主自己发起的阻塞调用：syscall server 模拟的 epoll_wait、read，只能按宿主要求的时长等，否则 syscall 模拟就坏了。不用信号： 不安装或替换信号处理函数，不发信号，不改信号掩码。用 `kill(pid, 0)` 只是探测进程是否存活，不算。
+> * 冲突： 没有 Frida 的架构靠 trap 后端（SIGTRAP），这条一定下，trap 后端单独定为例外”
 
-   > “锁： 只允许两类：
-   > * 无锁原子操作或固定数组；
-   > * 跨进程用 glibc robust mutex（11-25 已决定）。关键一点：mutex 被别人持有时 lock() 本身就会阻塞，robust 只管持有者死掉的情况；持有者被 SIGSTOP 或调试器停住时，所有进程都会一直等。所以热路径上应该用 trylock，拿不到就跳过这次事件并计数，不等待。这样第 1 条和第 4 条才不打架。不让宿主出错或停下： 所有 hook 入口和 `extern "C"` 边界都要捕获所有异常；注入代码里不出现 `abort`、`exit`、`assert`、`std::terminate`。这条和 CLAUDE.md 现有的第 1 条不变量一致，只是说得更死。
-   > 后台线程可以在编译 flag 里面可选不等待、不阻塞： bpftime 自己不 sleep、不轮询、不 join、不 waitpid，也不用阻塞式的锁。唯一例外是宿主自己发起的阻塞调用：syscall server 模拟的 epoll_wait、read，只能按宿主要求的时长等，否则 syscall 模拟就坏了。不用信号： 不安装或替换信号处理函数，不发信号，不改信号掩码。用 `kill(pid, 0)` 只是探测进程是否存活，不算。
-   > * 冲突： 没有 Frida 的架构靠 trap 后端（SIGTRAP），这条一定下，trap 后端单独定为例外”
-6. These points apply to every open bpftime pull request, including ones
-   whose standing verdict predates them: the next run reviews each again
-   against them.
+Operator, 2026-11-26, verbatim, on making these rules generic:
+
+> “patrol 不需要 hardcode bpftime 的 rule, 就是要求看 decistion 文件, 通用的规则, 比如说 template 里面有的通用的设计问题要仔细看”
+
+The rules a pull request is held to are the repository's own, not a copy in
+this skill. The quotes above are where the operator set them; their content
+lives in the repository (for bpftime: `DECISIONS.md`, `CLAUDE.md`/`AGENTS.md`,
+`CONTRIBUTING.md` and `.github/pull_request_template.md`).
+
+1. Before reviewing a pull request, read the repository's own rules on the
+   pull request's base: a decisions file (`DECISIONS.md` or the repository's
+   equivalent), `CLAUDE.md` or `AGENTS.md`, `CONTRIBUTING.md`, and the pull
+   request template. Check the head against every one of them.
+2. A head that reverses an entry in the decisions file gets `Verdict: design
+   problem — not ready to merge`, naming the entry, until a maintainer decides
+   again. A decision counts once the file records it with its date, its pull
+   requests and the maintainer's words verbatim, never paraphrased or
+   extended. A decision the operator gives the patrol directly is added to the
+   repository's decisions file in a documentation pull request in the same
+   run, with the operator's words copied verbatim; if the repository has no
+   such file, that pull request creates one.
+3. A section or checklist item the template marks as required, such as a
+   benchmark and performance impact analysis, that is missing or empty gets
+   `Verdict: needs fixes — not ready to merge`, naming it. The review reads
+   what the author filled in against the diff, for example numbers against the
+   hot paths the diff changes.
+4. The general design questions in the template and the contributor rules get
+   a careful read against the diff, not a tick: one purpose per pull request,
+   necessity and minimal scope, over-engineering, over-testing, title and scope
+   matching the final diff, and mechanisms that need a maintainer's agreement
+   before they are written. A violated design or safety rule is a design
+   problem. A mechanism that needs agreement and has none, in an issue or in a
+   maintainer's comment on the pull request, gets `Verdict: discussion — not
+   ready to merge`.
+5. A review that suggests a design other than the author's writes it under
+   "Option for the maintainers", never as a numbered fix, and the verdict does
+   not depend on it. Once a maintainer chooses it, the choice is recorded in
+   the decisions file before code follows it.
+6. When a repository's rules change, the next run reviews every open pull
+   request of that repository again against them, including ones whose
+   standing verdict predates the change.
 
 ### Other authors' pull requests: review only
 
