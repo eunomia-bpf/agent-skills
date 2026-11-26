@@ -798,17 +798,32 @@ Operator, 2026-11-26, verbatim, later the same day:
    recorded in `DECISIONS.md` before code follows it.
 5. Safety principles for the `LD_PRELOAD` agent (entries of 2026-11-26). A
    head that adds any of the following to code that runs in the injected
-   agent is a design problem under point 1, and the review names the line:
-   a lock outside a limited set of fork-safe lock mechanisms; anything that
-   can throw an error into the host or make it stop; a background thread;
-   any waiting or blocking; any signal mechanism. The syscall server is out
-   of scope.
+   agent is a design problem under point 1, and the review names the line.
+   The syscall server is out of scope.
+   - a lock other than lock-free atomics or fixed arrays and glibc robust
+     mutexes, or a hot-path lock taken without `trylock` (a held lock
+     skips the event and counts it, never waits);
+   - an exception that can leave a hook entry or `extern "C"` boundary, or
+     any `abort`, `exit`, `assert` or `std::terminate`;
+   - a background thread that is not behind an optional compile-time flag;
+   - any sleep, poll, join, `waitpid` or blocking lock, except a blocking
+     call the host itself made, which waits only as long as the host asked;
+   - installing or replacing a signal handler, sending a signal or changing
+     a signal mask (`kill(pid, 0)` liveness probes do not count). The trap
+     uprobe backend (`SIGTRAP`, where Frida is unavailable) is the one
+     exception.
 
    Operator, 2026-11-26, verbatim:
 
    > “大概就是我觉得 LD PRELOAD 里面有一些安全原则最好要遵守, 比如说 lock 必须只有有限的, fork 安全的 lock 机制; 不要任何可能会抛出错误或者导致宿主停下来的情况; 不要任何后台线程, 不要任何等待或者 block; 不要任何信号机制 这些也要记录进去”
 
    > “syscall server 没关系; 记录我的原话”
+
+   > “锁： 只允许两类：
+   > * 无锁原子操作或固定数组；
+   > * 跨进程用 glibc robust mutex（11-25 已决定）。关键一点：mutex 被别人持有时 lock() 本身就会阻塞，robust 只管持有者死掉的情况；持有者被 SIGSTOP 或调试器停住时，所有进程都会一直等。所以热路径上应该用 trylock，拿不到就跳过这次事件并计数，不等待。这样第 1 条和第 4 条才不打架。不让宿主出错或停下： 所有 hook 入口和 `extern "C"` 边界都要捕获所有异常；注入代码里不出现 `abort`、`exit`、`assert`、`std::terminate`。这条和 CLAUDE.md 现有的第 1 条不变量一致，只是说得更死。
+   > 后台线程可以在编译 flag 里面可选不等待、不阻塞： bpftime 自己不 sleep、不轮询、不 join、不 waitpid，也不用阻塞式的锁。唯一例外是宿主自己发起的阻塞调用：syscall server 模拟的 epoll_wait、read，只能按宿主要求的时长等，否则 syscall 模拟就坏了。不用信号： 不安装或替换信号处理函数，不发信号，不改信号掩码。用 `kill(pid, 0)` 只是探测进程是否存活，不算。
+   > * 冲突： 没有 Frida 的架构靠 trap 后端（SIGTRAP），这条一定下，trap 后端单独定为例外”
 6. These points apply to every open bpftime pull request, including ones
    whose standing verdict predates them: the next run reviews each again
    against them.
